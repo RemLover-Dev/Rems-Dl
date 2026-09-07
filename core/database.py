@@ -1,8 +1,16 @@
 import os
 import json
+import sys
 
 
-DATABASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database")
+def _app_base_dir():
+    # Frozen (PyInstaller) builds: keep all user data next to the exe,
+    # not inside the read-only _MEIPASS bundle.
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+DATABASE_DIR = os.path.join(_app_base_dir(), "database")
 
 TAG_HISTORY_FILE = os.path.join(DATABASE_DIR, "tag_history.json")
 FAV_TAGS_FILE = os.path.join(DATABASE_DIR, "fav_tags.json")
@@ -58,7 +66,7 @@ class DatabaseManager:
     # --- Image History ---
     @staticmethod
     def load_image_history():
-        from shared import tags_dict_from_lists
+        from core.shared import tags_dict_from_lists
         data = DatabaseManager.load_json(IMAGE_HISTORY_FILE)
         changed = False
         for entry in data:
@@ -76,7 +84,7 @@ class DatabaseManager:
 
     @staticmethod
     def add_image_history(worker_name, filename, tags_list, artist_list, filepath=None, characters=None, copyrights=None, metadata_tags=None):
-        from shared import tags_dict_from_lists
+        from core.shared import tags_dict_from_lists
         hist = DatabaseManager.load_image_history()
         tags_dict = tags_dict_from_lists(tags_list, artist_list, characters, copyrights, metadata_tags)
         entry = {
@@ -122,9 +130,22 @@ class DatabaseManager:
     @staticmethod
     def load_ui_config():
         config = DatabaseManager.load_json(UI_CONFIG_FILE)
-        if not config:
+        if not config or not isinstance(config, dict):
             config = DatabaseManager._default_ui_config()
             DatabaseManager.save_ui_config(config)
+            return config
+        # Migrate older configs: ensure new keys exist without wiping user data.
+        defaults = DatabaseManager._default_ui_config()
+        changed = False
+        for key, val in defaults.items():
+            if key not in config:
+                config[key] = val
+                changed = True
+        if changed:
+            try:
+                DatabaseManager.save_ui_config(config)
+            except Exception:
+                pass
         return config
 
     @staticmethod
@@ -135,6 +156,7 @@ class DatabaseManager:
     def _default_ui_config():
         return {
             "theme_mode": "dark",
+            "mute_auth_warnings": False,
             "wallpapers": {
                 "Main": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
                 "Neko": {"dark": "Rem_neko_d.png", "light": "Rem_neko_l.png"},
@@ -143,11 +165,19 @@ class DatabaseManager:
                 "Waifu": {"dark": "Rem_waifu_d.png", "light": "Rem_waifu_l.png"},
                 "Safe": {"dark": "Rem_safe_d.png", "light": "Rem_safe_l.png"},
                 "Gelbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"},
+                "Gsbooru": {"dark": "Rem_Gsbooru_d.jpg", "light": "Rem_Gsbooru_l.jpg"},
                 "Rule34": {"dark": "Rem_rule34_d.png", "light": "Rem_rule34_l.png"},
                 "Yande": {"dark": "Rem_yande_d.png", "light": "Rem_yande_l.png"},
-                "Kona": {"dark": "Rem_kona_d.png", "light": "Rem_kona_l.png"},
-                "Danbooru": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
-                "Pinterest": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"},
+                "Kona": {"dark": "Rem_Kona_d.jpg", "light": "Rem_Kona_l.jpg"},
+                "Danbooru": {"dark": "Rem_danbooru_d.jpg", "light": "Rem_danbooru_l.jpg"},
+                "Sankaku": {"dark": "Rem_Sankaku_d.jpg", "light": "Rem_Sankaku_l.jpg"},
+                "AnimeDL": {"dark": "Rem_AnimeDl_d.jpg", "light": "Rem_AnimeDl_l.jpg"},
+                "Pinterest": {"dark": "Rem_pintrest_d.jpg", "light": "Rem_pintrest_l.jpg"},
+                "Pixiv": {"dark": "Rem_Pixiv_d.jpg", "light": "Rem_Pixiv_l.jpg"},
+                "EShuushuu": {"dark": "Rem_EShuushuu_d.jpg", "light": "Rem_EShuushuu_l.jpg"},
+                "NekosAPI": {"dark": "Rem_NekosAPI_d.jpg", "light": "Rem_NekosAPI_l.jpg"},
+                "Nekosia": {"dark": "Rem_Nekosia_d.jpg", "light": "Rem_Nekosia_l.jpg"},
+                "Gallery": {"dark": "Rem_Gallery_d.jpg", "light": "Rem_Gallery_l.jpg"},
                 "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"},
                 "Options": {"dark": "Rem_option_d.png", "light": "Rem_option_l.png"},
                 "Customize": {"dark": "Rem_custom_d.png", "light": "Rem_custom_l.png"}
@@ -179,84 +209,132 @@ class DatabaseManager:
         return []
 
     @staticmethod
+    def _normalize_tag_list(raw):
+        """Accept list[str] | list[dict] and return a clean list[str].
+
+        Dict formats seen in the wild:
+          gsbooru: {"tag": name, "count": N}
+          eshuushuu: {"title": name, ...}
+          generic: {"name"|"value"|"label": name}
+        """
+        out = []
+        if not isinstance(raw, list):
+            return out
+        for item in raw:
+            name = None
+            if isinstance(item, str):
+                name = item
+            elif isinstance(item, dict):
+                for key in ("tag", "title", "name", "value", "label", "slug"):
+                    val = item.get(key)
+                    if isinstance(val, str) and val.strip():
+                        name = val
+                        break
+            if name:
+                name = name.strip()
+                if name:
+                    out.append(name)
+        return out
+
+    @staticmethod
     def load_safe_tags():
         tags = DatabaseManager._load_tag_db("safe_tag_names.json")
         if not tags:
             tags = DatabaseManager._load_tag_db("tag_names.json")
-        return tags
+        return DatabaseManager._normalize_tag_list(tags)
 
     @staticmethod
     def load_yande_tags():
-        return DatabaseManager._load_tag_db("yande_tag_names.json")
+        return DatabaseManager._normalize_tag_list(
+            DatabaseManager._load_tag_db("yande_tag_names.json"))
 
     @staticmethod
     def load_kona_tags():
-        return DatabaseManager._load_tag_db("kona_tag_names.json")
+        return DatabaseManager._normalize_tag_list(
+            DatabaseManager._load_tag_db("kona_tag_names.json"))
 
     @staticmethod
     def load_dan_tags():
-        return DatabaseManager._load_tag_db("dan_tag_names.json")
+        return DatabaseManager._normalize_tag_list(
+            DatabaseManager._load_tag_db("dan_tag_names.json"))
 
     @staticmethod
     def load_gelbooru_tags():
-        return DatabaseManager._load_tag_db("gelbooru_tag_names.json")
+        return DatabaseManager._normalize_tag_list(
+            DatabaseManager._load_tag_db("gelbooru_tag_names.json"))
 
     @staticmethod
     def load_gsbooru_tags():
         tags = DatabaseManager._load_tag_db("gsbooru_tag_names.json")
         if not tags:
             return []
-        # gsbooru format: [{"count": N, "tag": "name"}, ...]
-        if isinstance(tags[0], dict):
-            return [t.get("tag", "") for t in tags if isinstance(t, dict) and t.get("tag")]
-        return tags
+        # gsbooru format: [{"count": N, "tag": "name"}, ...] — also handles plain list[str]
+        return DatabaseManager._normalize_tag_list(tags)
 
     @staticmethod
     def load_sankaku_tags():
-        return DatabaseManager._load_tag_db("sankaku_tag_names.json")
+        return DatabaseManager._normalize_tag_list(
+            DatabaseManager._load_tag_db("sankaku_tag_names.json"))
 
     @staticmethod
     def load_anime_dl_tags():
         db_path = os.path.join(DATABASE_DIR, "anime_tags.json")
-        if os.path.exists(db_path):
-            try:
-                tags = []
+        if not os.path.exists(db_path):
+            return []
+        # File may be JSONL (one object per line: {"tag": ...}) or a plain JSON array.
+        try:
+            with open(db_path, "r", encoding="utf-8") as f:
+                head = f.read(2048).lstrip()
+            if head.startswith("["):
                 with open(db_path, "r", encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if line:
-                            obj = json.loads(line)
-                            tags.append(obj["tag"])
-                return tags
-            except Exception:
-                return []
-        return []
+                    return DatabaseManager._normalize_tag_list(json.load(f))
+        except Exception:
+            pass
+        try:
+            tags = []
+            with open(db_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip().rstrip(",")
+                    if not line or line in ("[", "]"):
+                        continue
+                    try:
+                        obj = json.loads(line)
+                    except Exception:
+                        continue
+                    if isinstance(obj, str) and obj.strip():
+                        tags.append(obj.strip())
+                    elif isinstance(obj, dict) and isinstance(obj.get("tag"), str):
+                        tags.append(obj["tag"].strip())
+            return [t for t in tags if t]
+        except Exception:
+            return []
 
     @staticmethod
-    def load_waifu_tags():
-        tags_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tags.json")
-        if os.path.exists(tags_path):
-            try:
-                with open(tags_path, "r", encoding="utf-8") as f:
-                    tags_db = json.load(f)
-                tag_map = {t["name"].lower(): t["slug"] for t in tags_db}
-                return tags_db, tag_map
-            except Exception:
-                return [], {}
+    def _load_waifu_tags():
+        tags_path = os.path.join(DATABASE_DIR, "waifu.im_tags.json")
+        try:
+            with open(tags_path, "r", encoding="utf-8") as f:
+                tags_db = json.load(f)
+            tag_map = {t["name"].lower(): t["slug"] for t in tags_db}
+            return tags_db, tag_map
+        except Exception:
+            return [], {}
         return [], {}
 
     @staticmethod
     def load_eshuushuu_tags():
         tags = DatabaseManager._load_tag_db("eshuushuu_tags.json")
-        return [t.get("title", "") for t in tags if isinstance(t, dict) and "title" in t]
+        return DatabaseManager._normalize_tag_list(tags)
 
     @staticmethod
     def load_nekosapi_tags():
-        return DatabaseManager._load_tag_db("nekosapi_tag_names.json")
+        return DatabaseManager._normalize_tag_list(
+            DatabaseManager._load_tag_db("nekosapi_tag_names.json"))
 
     @staticmethod
     def load_nekosia_tags():
-        return DatabaseManager._load_tag_db("nekosia_tag_names.json")
+        return DatabaseManager._normalize_tag_list(
+            DatabaseManager._load_tag_db("nekosia_tag_names.json"))
 
 
 class SettingsManager:
@@ -271,8 +349,7 @@ class SettingsManager:
             "api_timeout": int(os.getenv("API_TIMEOUT", "10")),
             "retry_wait": int(os.getenv("RETRY_WAIT", "5")),
             "anti_ban_pause": float(os.getenv("ANTI_BAN_PAUSE", "3.0")),
-            "download_retries": int(os.getenv("DOWNLOAD_RETRIES", "3")),
-            "write_hydrus_sidecar": os.getenv("WRITE_HYDRUS_SIDECAR", "true").lower() == "true"
+            "download_retries": int(os.getenv("DOWNLOAD_RETRIES", "3"))
         }
 
     def get(self, key, default=None):
@@ -329,8 +406,7 @@ class SettingsManager:
             "API_TIMEOUT": str(self.config['api_timeout']),
             "RETRY_WAIT": str(self.config['retry_wait']),
             "ANTI_BAN_PAUSE": str(self.config['anti_ban_pause']),
-            "DOWNLOAD_RETRIES": str(self.config['download_retries']),
-            "WRITE_HYDRUS_SIDECAR": str(self.config['write_hydrus_sidecar']).lower()
+            "DOWNLOAD_RETRIES": str(self.config['download_retries'])
         }
         self._upsert_env_keys(env_keys)
 

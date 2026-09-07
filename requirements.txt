@@ -7,4 +7,4 @@ aiohttp
 curl_cffi
 rule34Py
 gallery-dl
-opencv-python
+pywebview

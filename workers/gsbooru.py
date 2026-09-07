@@ -14,7 +14,7 @@ except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from workers import BaseWorker
 
-from shared import (
+from core.shared import (
     save_history,
     write_image_metadata,
     add_to_gallery,

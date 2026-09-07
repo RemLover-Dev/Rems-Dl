@@ -1,13 +1,13 @@
 import sys
 import os
 
-# Add the current directory to the path so we can import the modules
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add the project root to the path so we can import the modules
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    import Rem_catcher
-    import database
-    import shared
+    import Rems_Dl
+    from core import database
+    from core import shared
     import workers
     for m in ("pinterest_worker", "anime_dl", "zerochan", "sankaku", "konachan",
               "yande", "waifu_im", "nekos_life", "nekos_best", "safebooru",

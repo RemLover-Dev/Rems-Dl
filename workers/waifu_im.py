@@ -1,7 +1,7 @@
 import os, re
 import asyncio
 from workers import BaseWorker
-import shared
+import core.shared as shared
 
 
 def waifu_name_to_slug(name):

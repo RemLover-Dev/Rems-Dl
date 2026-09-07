@@ -1,6 +1,6 @@
 import os
 import asyncio
-from shared import BaseDownloader
+from core.shared import BaseDownloader
 
 class NekosiaWorker(BaseDownloader):
     def __init__(self, tag, amount, rating, net_config):

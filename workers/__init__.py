@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from shared import BaseDownloader
+from core.shared import BaseDownloader
 
 __all__ = ["BaseWorker", "BaseDownloader"]
 

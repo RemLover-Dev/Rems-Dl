@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import threading
 import json
 import time
@@ -8,8 +9,25 @@ import hashlib
 import aiohttp
 from PIL import Image, PngImagePlugin
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MASTER_FOLDER = os.path.join(BASE_DIR, "Rem God")
+
+def _app_base_dir():
+    # Frozen (PyInstaller) builds: keep all user data next to the exe,
+    # not inside the read-only _MEIPASS bundle.
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+BASE_DIR = _app_base_dir()
+APP_NAME = "Rems Dl"
+DOWNLOAD_DIR_NAME = "Rems Dl"
+LEGACY_DOWNLOAD_DIR_NAME = "Rem God"
+MASTER_FOLDER = os.path.join(BASE_DIR, DOWNLOAD_DIR_NAME)
+# Auto-migrate legacy "Rem God" download folder to "Rems Dl" (one-time, safe).
+if os.path.isdir(os.path.join(BASE_DIR, LEGACY_DOWNLOAD_DIR_NAME)) and not os.path.isdir(MASTER_FOLDER):
+    try:
+        os.rename(os.path.join(BASE_DIR, LEGACY_DOWNLOAD_DIR_NAME), MASTER_FOLDER)
+    except Exception:
+        pass
 HISTORY_LOCK = threading.Lock()
 STOP_EVENTS = {}
 
@@ -186,7 +204,7 @@ def write_image_metadata(filepath, tags_list, artists, site, characters=None, co
         if ext in ('jpg', 'jpeg'):
             # inject a COM segment at byte level — saving through PIL here would
             # recompress the image (3MB originals were shrinking to ~1.4MB)
-            payload = b"RemGodCatcher\n" + meta_text.encode("utf-8")
+            payload = b"Rems_Dl\n" + meta_text.encode("utf-8")
             payload = payload[:65531]
             with open(filepath, "rb") as f:
                 data = f.read()
@@ -199,7 +217,7 @@ def write_image_metadata(filepath, tags_list, artists, site, characters=None, co
             os.replace(tmp, filepath)
         elif ext == 'png':
             pnginfo = PngImagePlugin.PngInfo()
-            pnginfo.add_text("RemGodCatcher", meta_text)
+            pnginfo.add_text("Rems_Dl", meta_text)
             img = Image.open(filepath)
             img.save(filepath, pnginfo=pnginfo)  # lossless for PNG
         # webp/gif skipped: embedding would re-encode and lose quality
@@ -247,9 +265,12 @@ class BaseDownloader:
         self.net_config = net_config
 
         self.stop_event = threading.Event()
-        # ponytail: replace, not append — stale events from dead runs must never let
-        # one STOP press kill a freshly started worker. One live worker per name.
-        STOP_EVENTS[name] = [self.stop_event]
+        # Append, never replace: replacing orphans a still-running previous
+        # worker of the same name (e.g. double START) — STOP then only
+        # reaches the newest run and the older one downloads forever.
+        # Finished workers remove their own event in run_async_loop's
+        # finally block, so the list cannot grow unboundedly.
+        STOP_EVENTS.setdefault(name, []).append(self.stop_event)
 
         self.anti_ban_pause = float(net_config.get("anti_ban_pause", 3.0))
         self.dl_retries = int(net_config.get("download_retries", 3))
@@ -282,7 +303,7 @@ class BaseDownloader:
         """Create and return an aiohttp.ClientSession with proxy and headers."""
         timeout = aiohttp.ClientTimeout(total=30, connect=10)
         headers = {
-            "User-Agent": "RemGodCatcher/4.0 (by RemLover on GitHub)",
+            "User-Agent": "Rems_Dl/5.0 (by RemLover on GitHub)",
             "Accept": "application/json",
         }
         proxy = None

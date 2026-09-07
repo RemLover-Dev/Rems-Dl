@@ -1,7 +1,7 @@
 import os, re, hashlib
 import asyncio
 from workers import BaseWorker
-from shared import load_tag_cache, save_tag_cache, TAG_TYPE_MAP
+from core.shared import load_tag_cache, save_tag_cache, TAG_TYPE_MAP
 
 
 class KonachanWorker(BaseWorker):

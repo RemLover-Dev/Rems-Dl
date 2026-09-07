@@ -1,5 +1,6 @@
 let globalNetConfig = { "proxy_url": "", "use_proxy": false, "verify_tls": false };
 let uiConfig = {};
+let apiCreds = {};
 let currentActiveTheme = 'dark';
 
 const TAG_CATEGORIES = ["artist", "character", "copyright", "metadata", "tag", "mangaka", "game", "outfit", "theme", "source", "meta", "vtuber", "series", "group", "studio"];
@@ -87,10 +88,14 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e =
 async function loadUIConfig() {
     try {
         let resp = await fetch("/api/ui_config");
-        uiConfig = await resp.json();
+        uiConfig = await resp.json() || {};
+        if (typeof uiConfig.mute_auth_warnings === "undefined") uiConfig.mute_auth_warnings = false;
 
         let radio = document.querySelector(`input[name="themeMode"][value="${uiConfig.theme_mode}"]`);
         if (radio) radio.checked = true;
+
+        let muteBox = document.getElementById("muteAuthWarnings");
+        if (muteBox) muteBox.checked = !!uiConfig.mute_auth_warnings;
 
         let resolvedTheme = uiConfig.theme_mode;
         if (resolvedTheme === 'system') {
@@ -225,7 +230,36 @@ async function saveWallpapersUI() {
 async function resetWallpapersUI() {
     if (!confirm("Are you sure you want to reset all WALLPAPERS to default? Colors will not be changed.")) return;
     uiConfig.wallpapers = {
-        "Main": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Neko": {"dark": "Rem_neko_d.png", "light": "Rem_neko_l.png"}, "NekosLife": {"dark": "Rem_nekolife_d.png", "light": "Rem_nekolife_l.png"}, "Zero": {"dark": "Rem_zero_d.png", "light": "Rem_zero_l.png"}, "Waifu": {"dark": "Rem_waifu_d.png", "light": "Rem_waifu_l.png"}, "Safe": {"dark": "Rem_safe_d.png", "light": "Rem_safe_l.png"}, "Gelbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"}, "Gsbooru": {"dark": "Rem_gelbooru_d.png", "light": "Rem_gelbooru_l.png"}, "Rule34": {"dark": "Rem_rule34_d.png", "light": "Rem_rule34_l.png"}, "Yande": {"dark": "Rem_yande_d.png", "light": "Rem_yande_l.png"}, "Danbooru": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Pinterest": {"dark": "Rem_main_d.png", "light": "Rem_main_l.png"}, "Pixiv": {"dark": "Rem_pixiv_d.png", "light": "Rem_pixiv_l.png"}, "History": {"dark": "Rem_history_d.png", "light": "Rem_history_l.png"}, "Options": {"dark": "Rem_option_d.png", "light": "Rem_option_l.png"}, "Customize": {"dark": "Rem_custom_d.png", "light": "Rem_custom_l.png"}
+        'Customize': {'dark': 'Rem_custom_d.png', 'light': 'Rem_custom_l.png'},
+        'Gelbooru': {'dark': 'Rem_gelbooru_d.png', 'light': 'Rem_gelbooru_l.png'},
+        'History': {'dark': 'Rem_history_d.png', 'light': 'Rem_history_l.png'},
+        'Main': {'dark': 'Rem_main_d.png', 'light': 'Rem_main_l.png'},
+        'Neko': {'dark': 'Rem_neko_d.png', 'light': 'Rem_neko_l.png'},
+        'NekosLife': {'dark': 'Rem_nekolife_d.png', 'light': 'Rem_nekolife_l.png'},
+        'Options': {'dark': 'Rem_option_d.png', 'light': 'Rem_option_l.png'},
+        'Rule34': {'dark': 'Rem_rule34_d.png', 'light': 'Rem_rule34_l.png'},
+        'Safe': {'dark': 'Rem_safe_d.png', 'light': 'Rem_safe_l.png'},
+        'Waifu': {'dark': 'Rem_waifu_d.png', 'light': 'Rem_waifu_l.png'},
+        'Yande': {'dark': 'Rem_yande_d.png', 'light': 'Rem_yande_l.png'},
+        'Zero': {'dark': 'Rem_zero_d.png', 'light': 'Rem_zero_l.png'},
+        'AnimeDL': {'dark': 'Rem_AnimeDl_d.jpg', 'light': 'Rem_AnimeDl_l.jpg'},
+        'Danbooru': {'dark': 'Rem_danbooru_d.jpg', 'light': 'Rem_danbooru_l.jpg'},
+        'EShuushuu': {'dark': 'Rem_EShuushuu_d.jpg', 'light': 'Rem_EShuushuu_l.jpg'},
+        'Gallery': {'dark': 'Rem_Gallery_d.jpg', 'light': 'Rem_Gallery_l.jpg'},
+        'Gsbooru': {'dark': 'Rem_Gsbooru_d.jpg', 'light': 'Rem_Gsbooru_l.jpg'},
+        'Kona': {'dark': 'Rem_Kona_d.jpg', 'light': 'Rem_Kona_l.jpg'},
+        'NekosAPI': {'dark': 'Rem_NekosAPI_d.jpg', 'light': 'Rem_NekosAPI_l.jpg'},
+        'Nekosia': {'dark': 'Rem_Nekosia_d.jpg', 'light': 'Rem_Nekosia_l.jpg'},
+        'Pinterest': {'dark': 'Rem_pintrest_d.jpg', 'light': 'Rem_pintrest_l.jpg'},
+        'Pixiv': {'dark': 'Rem_Pixiv_d.jpg', 'light': 'Rem_Pixiv_l.jpg'},
+        'Sankaku': {'dark': 'Rem_Sankaku_d.jpg', 'light': 'Rem_Sankaku_l.jpg'},
+        // Shorthand names matching some worker variable names/legacy tabs:
+        'dan': {'dark': 'Rem_danbooru_d.jpg', 'light': 'Rem_danbooru_l.jpg'},
+        'kona': {'dark': 'Rem_Kona_d.jpg', 'light': 'Rem_Kona_l.jpg'},
+        'neko': {'dark': 'Rem_neko_d.png', 'light': 'Rem_neko_l.png'},
+        'safe': {'dark': 'Rem_safe_d.png', 'light': 'Rem_safe_l.png'},
+        'waifu': {'dark': 'Rem_waifu_d.png', 'light': 'Rem_waifu_l.png'},
+        'zero': {'dark': 'Rem_zero_d.png', 'light': 'Rem_zero_l.png'}
     };
     renderWallpaperGrid();
     await saveWallpapersUI();
@@ -608,20 +642,24 @@ function enhanceSelect(select) {
 function setupAutosuggest(inputId, dropdownId, apiEndpoint) {
     let input = document.getElementById(inputId);
     let dropdown = document.getElementById(dropdownId);
-    if (!input || !dropdown) return;
+    if (!input || !dropdown) {
+        if (window.console && console.warn) console.warn("Autosuggest skipped, missing element:", inputId, dropdownId);
+        return;
+    }
 
     let suggestTimer = null;
     let activeIndex = -1;
 
     input.addEventListener("input", function() {
         clearTimeout(suggestTimer);
-        let val = input.value.trim();
-        
+        let val = "";
+        try { val = (input.value || "").trim(); } catch(e) { return; }
+
         let isNegative = val.startsWith('-');
         let queryVal = isNegative ? val.substring(1) : val;
 
         if (queryVal.length < 2) {
-            dropdown.style.display = "none";
+            try { dropdown.style.display = "none"; } catch(e) {}
             return;
         }
 
@@ -629,21 +667,37 @@ function setupAutosuggest(inputId, dropdownId, apiEndpoint) {
             try {
                 let resp = await fetch(apiEndpoint, {
                     method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ query: queryVal })
+                    body: JSON.stringify({ query: queryVal, net_config: (typeof globalNetConfig !== "undefined" ? globalNetConfig : {}) })
                 });
-                let data = await resp.json();
-                if (data && data.length > 0) {
+                if (!resp || !resp.ok) { dropdown.style.display = "none"; return; }
+                let data = null;
+                try { data = await resp.json(); } catch(e) { dropdown.style.display = "none"; return; }
+                if (!Array.isArray(data)) { dropdown.style.display = "none"; return; }
+                // Coerce list[str] | list[dict] -> list[str] without crashing on odd items
+                let items = [];
+                data.forEach((item) => {
+                    try {
+                        if (typeof item === "string" && item.trim()) items.push(item.trim());
+                        else if (item && typeof item === "object") {
+                            let v = item.value || item.name || item.tag || item.title || item.label;
+                            if (typeof v === "string" && v.trim()) items.push(v.trim());
+                        }
+                    } catch(e) {}
+                });
+                if (items.length > 0) {
                     activeIndex = -1;
                     dropdown.innerHTML = "";
-                    data.forEach((item) => {
+                    items.slice(0, 50).forEach((item) => {
                         let finalTag = isNegative ? '-' + item : item;
                         let div = document.createElement("div");
                         div.className = "autosuggest-item";
                         div.textContent = finalTag;
                         div.onclick = function() {
-                            input.value = finalTag;
-                            dropdown.style.display = "none";
-                            input.focus();
+                            try {
+                                input.value = finalTag;
+                                dropdown.style.display = "none";
+                                input.focus();
+                            } catch(e) {}
                         };
                         dropdown.appendChild(div);
                     });
@@ -652,7 +706,7 @@ function setupAutosuggest(inputId, dropdownId, apiEndpoint) {
                     dropdown.style.display = "none";
                 }
             } catch(e) {
-                dropdown.style.display = "none";
+                try { dropdown.style.display = "none"; } catch(_e) {}
             }
         }, 300);
     });
@@ -756,7 +810,6 @@ window.onload = async function () {
             document.getElementById("retryWait").value = config.retry_wait || 5;
             document.getElementById("antiBanPause").value = config.anti_ban_pause || 3;
             document.getElementById("downloadRetries").value = config.download_retries || 3;
-            document.getElementById("hydrusSidecarToggle").checked = config.write_hydrus_sidecar !== false;
         }
     } catch (e) { console.error("Config error:", e); }
 
@@ -906,22 +959,124 @@ function clearLog(tabID) {
     if (cb) cb.innerHTML = "";
 }
 
-function showToast(msg) {
+function showToast(msg, kind) {
     const container = document.getElementById("toastContainer") || (() => { const c = document.createElement('div'); c.id = 'toastContainer'; c.className = 'toast-container'; document.body.appendChild(c); return c; })();
     let toast = document.createElement("div");
     toast.className = "toast-item";
-    toast.innerHTML = `<div class="toast-icon">ℹ️</div><div class="toast-body"><span class="toast-title">${msg}</span></div><button class="toast-dismiss" onclick="this.parentElement.remove()">✕</button>`;
+    let icon = "ℹ️";
+    let border = "rgba(231, 76, 60, 0.5)";
+    let iconColor = "";
+    if (kind === "error") {
+        icon = "❌";
+        border = "rgba(231, 76, 60, 0.9)";
+        iconColor = "#e74c3c";
+    } else if (kind === "warn" || kind === "warning") {
+        icon = "⚠️";
+        border = "rgba(243, 156, 18, 0.9)";
+        iconColor = "#f39c12";
+    } else if (kind === "success") {
+        icon = "✅";
+        border = "rgba(46, 204, 113, 0.9)";
+        iconColor = "#2ecc71";
+    }
+    // Avoid "⚠️ ⚠️ ..." doubling: the icon div already shows the kind
+    // emoji, so strip the same leading emoji from the message text.
+    try {
+        if (kind && typeof msg === "string" && msg.startsWith(icon)) {
+            msg = msg.slice(icon.length).trim();
+        }
+    } catch(e) {}
+    toast.style.borderColor = border;
+    toast.innerHTML = `<div class="toast-icon"${iconColor ? ` style="color:${iconColor};"` : ""}>${icon}</div><div class="toast-body"><span class="toast-title">${msg}</span></div><button class="toast-dismiss" onclick="this.parentElement.remove()">✕</button>`;
     container.appendChild(toast);
-    setTimeout(() => { if (!toast.parentElement) return; toast.classList.add("fade-out"); setTimeout(() => toast.remove(), 350); }, 4000);
+    setTimeout(() => { if (!toast.parentElement) return; toast.classList.add("fade-out"); setTimeout(() => toast.remove(), 350); }, kind === "error" ? 6000 : 4000);
+}
+
+function _credVal(elementId, fallbackKey) {
+    try {
+        let el = document.getElementById(elementId);
+        if (el && typeof el.value === "string" && el.value.trim()) return el.value.trim();
+    } catch(e) {}
+    try {
+        if (apiCreds && typeof apiCreds[fallbackKey] === "string" && apiCreds[fallbackKey].trim()) return apiCreds[fallbackKey].trim();
+    } catch(e) {}
+    try {
+        if (globalNetConfig && typeof globalNetConfig[fallbackKey] === "string" && globalNetConfig[fallbackKey].trim()) return globalNetConfig[fallbackKey].trim();
+    } catch(e) {}
+    return "";
+}
+
+// Pre-flight authentication gates. Returns true when the worker may start,
+// false when a STRICT block halted the download. Soft warnings never block.
+function checkAuthGate(workerName) {
+    let muted = false;
+    try { muted = !!(uiConfig && uiConfig.mute_auth_warnings); } catch(e) { muted = false; }
+    const strictError = (site) => {
+        showToast(`❌ Authentication Required! Please go to Settings and enter your credentials to download from ${site}.`, "error");
+    };
+    const softWarn = () => {
+        if (!muted) showToast("⚠️ Tip: Login in Settings to bypass download limits and access more images.", "warn");
+    };
+
+    if (workerName === 'rule34') {
+        if (!_credVal("r34Key", "rule34_api_key") || !_credVal("r34Uid", "rule34_user_id")) {
+            strictError("Rule34");
+            return false;
+        }
+    } else if (workerName === 'gelbooru') {
+        if (!_credVal("gelKey", "gelbooru_api_key") || !_credVal("gelUid", "gelbooru_user_id")) {
+            strictError("Gelbooru");
+            return false;
+        }
+    } else if (workerName === 'pixiv') {
+        if (!_credVal("pixivToken", "pixiv_refresh_token")) {
+            strictError("Pixiv");
+            return false;
+        }
+    } else if (workerName === 'pinterest') {
+        let cookies = _credVal("pinterestCookies", "pinterest_cookies");
+        let email = _credVal("pinterestEmail", "pinterest_email");
+        let pass = _credVal("pinterestPassword", "pinterest_password");
+        if (!cookies && !(email && pass)) {
+            strictError("Pinterest");
+            return false;
+        }
+    } else if (workerName === 'zero') {
+        if (!_credVal("zeroLogin", "zerochan_login") || !_credVal("zeroPassword", "zerochan_password")) {
+            strictError("Zerochan");
+            return false;
+        }
+    } else if (workerName === 'sankaku') {
+        if (!_credVal("sankaLogin", "sanka_login") || !_credVal("sankaPassword", "sanka_password")) {
+            softWarn();
+        }
+    } else if (workerName === 'kona') {
+        if (!_credVal("konaLogin", "konachan_login") || !_credVal("konaPassword", "konachan_password")) {
+            softWarn();
+        }
+    }
+    return true;
+}
+
+async function saveMuteAuthWarnings() {
+    try {
+        let box = document.getElementById("muteAuthWarnings");
+        uiConfig.mute_auth_warnings = !!(box && box.checked);
+        await fetch("/api/ui_config", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(uiConfig) });
+    } catch(e) {}
 }
 
 function startWorker(workerName) {
+    // Smart authentication gates: strict blocks halt, soft warnings do not.
+    try {
+        if (!checkAuthGate(workerName)) return;
+    } catch(e) { console.error("Auth gate error:", e); }
     let payload = { worker: workerName, net_config: { ...globalNetConfig } };
     payload.net_config.api_timeout = document.getElementById("apiTimeout").value;
     payload.net_config.retry_wait = document.getElementById("retryWait").value;
     payload.net_config.anti_ban_pause = document.getElementById("antiBanPause").value;
     
-    if (workerName === 'zero') { payload.tag = document.getElementById('zeroTag').value; payload.limit = document.getElementById('zeroLimit').value; } 
+    if (workerName === 'zero') { payload.tag = document.getElementById('zeroTag').value; payload.limit = document.getElementById('zeroLimit').value; payload.net_config.zerochan_login = _credVal("zeroLogin", "zerochan_login"); payload.net_config.zerochan_password = _credVal("zeroPassword", "zerochan_password"); }
     else if (workerName === 'waifu') { payload.tag = document.getElementById('waifuTag').value; payload.limit = document.getElementById('waifuLimit').value; payload.nsfw = document.getElementById('waifuNsfw').checked; } 
     else if (workerName === 'neko') { payload.category = document.getElementById('nekoCat').value; payload.limit = document.getElementById('nekoAmount').value; } 
     else if (workerName === 'nekos_life') { payload.category = document.getElementById('nekosLifeCat').value; payload.limit = document.getElementById('nekosLifeAmount').value; const mixed = ["goose", "wallpaper", "lizard", "span"]; if (mixed.includes(payload.category)) payload.format = document.getElementById('nekosLifeFormat').value; } 
@@ -996,6 +1151,7 @@ function stopWorker(workerName) {
 async function loadApiSettings() {
     let resp = await fetch("/api/api-settings");
     let settings = await resp.json();
+    try { apiCreds = settings || {}; } catch(e) { apiCreds = {}; }
     document.getElementById("r34Key").value = settings.rule34_api_key || "";
     document.getElementById("r34Uid").value = settings.rule34_user_id || "";
     document.getElementById("gelKey").value = settings.gelbooru_api_key || "";
@@ -1031,6 +1187,7 @@ async function saveApiSettings() {
     };
     let resp = await fetch("/api/api-settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     let result = await resp.json();
+    try { apiCreds = payload; } catch(e) {}
     let statusEl = document.getElementById("apiSaveStatus");
     statusEl.textContent = result.success ? "Saved!" : "Error!";
     setTimeout(()=> statusEl.textContent = "", 2000);
@@ -1041,8 +1198,14 @@ async function saveDownloadSettings() {
     globalNetConfig.retry_wait = document.getElementById("retryWait").value;
     globalNetConfig.anti_ban_pause = document.getElementById("antiBanPause").value;
     globalNetConfig.download_retries = document.getElementById("downloadRetries").value;
-    globalNetConfig.write_hydrus_sidecar = document.getElementById("hydrusSidecarToggle").checked;
     await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(globalNetConfig) });
+    try {
+        let muteBox = document.getElementById("muteAuthWarnings");
+        if (muteBox) {
+            uiConfig.mute_auth_warnings = !!muteBox.checked;
+            await fetch("/api/ui_config", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(uiConfig) });
+        }
+    } catch(e) {}
     document.getElementById("dlSettingsStatus").textContent = "Saved!";
     setTimeout(()=> document.getElementById("dlSettingsStatus").textContent = "", 2000);
 }

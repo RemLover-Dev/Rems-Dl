@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-
+# SPDX-License-Identifier: GPL-2.0-only
+#
 # Adapted from gallery-dl (https://github.com/mikf/gallery-dl)
 # Original: gallery_dl/extractor/pixiv.py  |  gallery_dl/text.py
 #           gallery_dl/extractor/common.py  |  gallery_dl/util.py
@@ -10,7 +11,7 @@
 # the Free Software Foundation, either version 2 of the License, or
 # (at your option) any later version.
 #
-# This file is part of RemGodCatcher, which incorporates GPL-2.0 licensed
+# This file is part of Rems_Dl, which incorporates GPL-2.0 licensed
 # code from gallery-dl. See LICENSE for details.
 #
 # Modifications: adapted to BaseDownloader pattern, removed gallery-dl
@@ -29,7 +30,7 @@ from urllib.parse import unquote
 from PIL import Image
 import requests
 
-from shared import BaseDownloader, save_history, add_to_gallery, send_tags, MASTER_FOLDER
+from core.shared import BaseDownloader, save_history, add_to_gallery, send_tags, MASTER_FOLDER
 
 CLIENT_ID = "MOBrBDS8blbauoSck0ZfDbtuzpyT"
 CLIENT_SECRET = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"

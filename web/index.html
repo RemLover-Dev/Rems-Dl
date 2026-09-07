@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rem God Catcher</title>
+    <title>Rems Dl</title>
+    <link rel="icon" type="image/png" href="icon.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Code+Pro:wght@300;400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
@@ -61,7 +62,7 @@
                         <button class="action-btn" onclick="browseFolder()">Browse</button>
                     </div>
 
-                    <div style="margin-top: 12px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                    <div class="info-box" style="margin-top: 12px;">
                         <div class="input-group" style="margin-top: 0;">
                             <input type="checkbox" id="proxyEnabled">
                             <label for="proxyEnabled" style="font-weight: 600;">Enable Proxy (Required for Rule34, Safebooru)</label>
@@ -73,7 +74,7 @@
                         </div>
                     </div>
 
-                    <div style="margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                    <div class="info-box" style="margin-top: 15px;">
                         <p style="color: var(--title-color); font-size: 14px; font-weight: bold; margin-bottom: 8px;">Favorite Tags</p>
                         <div id="favoritesListUI" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 120px; overflow-y: auto;">
                             </div>
@@ -268,7 +269,7 @@
                     <button class="action-btn" onclick="startWorker('dan')">START</button>
                     <button class="action-btn stop-btn" onclick="stopWorker('dan')">STOP</button>
                 </div>
-                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
+                <div class="input-group filter-bar">
                     <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
                     <select id="danFormat" style="margin-right: 15px;">
                         <option value="images">Images Only</option>
@@ -324,7 +325,7 @@
                         </div>
                     </div>
                     <button id="galleryFavBtn" class="gallery-fav-btn" onclick="toggleFavFilter()">♥ Favorites</button>
-                    <button class="action-btn" onclick="rescanGallery()" title="Scan Rem God folder for new images">↻</button>
+                    <button class="action-btn" onclick="rescanGallery()" title="Scan Rems Dl folder for new images">↻</button>
                 </div>
                 <div id="galleryGrid"></div>
                 <div id="galleryPagination" class="gallery-pagination"></div>
@@ -367,7 +368,7 @@
                     <button class="action-btn" onclick="startWorker('gelbooru')">START</button>
                     <button class="action-btn stop-btn" onclick="stopWorker('gelbooru')">STOP</button>
                 </div>
-                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
+                <div class="input-group filter-bar">
                     <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
                     <select id="gelFormat" style="margin-right: 15px;">
                         <option value="images">Images Only</option>
@@ -451,7 +452,7 @@
                     <button class="action-btn" onclick="startWorker('kona')">START</button>
                     <button class="action-btn stop-btn" onclick="stopWorker('kona')">STOP</button>
                 </div>
-                <div class="input-group" style="margin-top: 10px; font-size: 14px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px;">
+                <div class="input-group filter-bar">
                     <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
                     <select id="konaFormat" style="margin-right: 15px;">
                         <option value="images">Images Only</option>
@@ -603,8 +604,8 @@
                                 <div class="field-row" style="flex-direction: column; align-items: flex-start; gap: 4px;"><label style="min-width: unset; font-size: 12px; opacity: 0.8;">Download Retries</label><input type="number" id="downloadRetries" value="3" min="1" style="width: 100%;"></div>
                             </div>
                             <div class="field-row" style="margin-top: 12px;">
-                                <input type="checkbox" id="hydrusSidecarToggle">
-                                <label for="hydrusSidecarToggle">Write Hydrus sidecar (.txt) metadata files</label>
+                                <input type="checkbox" id="muteAuthWarnings" onchange="saveMuteAuthWarnings()">
+                                <label for="muteAuthWarnings">Mute login tips for Sankaku/Konachan (hide soft auth warnings)</label>
                             </div>
                             <div style="display: flex; align-items: center; gap: 12px; margin-top: 12px;">
                                 <button class="action-btn" onclick="saveDownloadSettings()">💾 Save Download Settings</button>
@@ -690,7 +691,7 @@
             <!-- CLEANED RULE34 LAYOUT -->
             <div id="Rule34" class="tab-content" style="display: none;">
                 <h2>Rule34 Downloader</h2>
-                <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); margin-top: 5px; margin-bottom: 5px;">
+                <div class="info-box" style="border-color: var(--border-color); margin-top: 5px; margin-bottom: 5px;">
                     <div class="input-group" style="margin-top: 0; align-items: flex-start; gap: 8px;">
                         <label style="min-width: 60px; padding-top: 4px; font-size: 13px;">Tags:</label>
                         <div style="display:flex; flex-direction:column; flex:1; gap:4px;">
@@ -703,39 +704,41 @@
                         </div>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
-                        <div class="input-group" style="margin-top: 0;">
-                            <label style="min-width: 60px; font-size: 13px;">Method:</label>
-                            <select id="rule34Method" style="flex: 1; padding: 2px 6px; font-size: 12px; height: 26px;">
+                    <div class="r34-grid">
+                        <div class="input-group r34-row">
+                            <label>Method:</label>
+                            <select id="rule34Method">
                                 <option value="and">AND (All)</option>
                                 <option value="or">OR (Any)</option>
                             </select>
                         </div>
-                        <div class="input-group" style="margin-top: 0;">
-                            <label style="min-width: 40px; font-size: 13px;">Sort:</label>
-                            <select id="rule34SortType" style="flex: 1; padding: 2px 6px; font-size: 12px; height: 26px;">
+                        <div class="input-group r34-row">
+                            <label>Sort:</label>
+                            <select id="rule34SortType">
                                 <option value="id">Newest (ID)</option>
                                 <option value="score">Score</option>
                             </select>
-                            <select id="rule34SortOrder" style="margin-left: 6px; padding: 2px 6px; font-size: 12px; height: 26px; width: 60px;">
-                                <option value="desc">Desc</option>
-                                <option value="asc">Asc</option>
+                            <select id="rule34SortOrder">
+                                <option value="desc">Descending</option>
+                                <option value="asc">Ascending</option>
                             </select>
                         </div>
-                        <div class="input-group" style="margin-top: 0;">
-                            <label style="min-width: 60px; font-size: 13px;">Format:</label>
-                            <select id="rule34Format" style="flex: 1; padding: 2px 6px; font-size: 12px; height: 26px;" onchange="toggleGifExclusion('rule34Format', 'exGif')">
+                        <div class="input-group r34-row">
+                            <label>Format:</label>
+                            <select id="rule34Format" onchange="toggleGifExclusion('rule34Format', 'exGif')">
                                 <option value="images">Images Only</option>
                                 <option value="gifs">GIFs Only</option>
                                 <option value="all">Images & Videos</option>
                                 <option value="videos">Videos Only</option>
                             </select>
                         </div>
-                        <div class="input-group" style="margin-top: 0; display: flex; align-items: center; gap: 6px; font-size: 12px;">
-                            <label style="min-width: 60px; font-size: 13px;">Exclude:</label>
-                            <input type="checkbox" id="exGif"><label for="exGif">GIF</label>
-                            <input type="checkbox" id="exComic"><label for="exComic">Comic</label>
-                            <input type="checkbox" id="ex3D"><label for="ex3D">3D</label>
+                        <div class="input-group r34-row">
+                            <label>Exclude:</label>
+                            <div class="r34-checks">
+                                <input type="checkbox" id="exGif"><label for="exGif">GIF</label>
+                                <input type="checkbox" id="exComic"><label for="exComic">Comic</label>
+                                <input type="checkbox" id="ex3D"><label for="ex3D">3D</label>
+                            </div>
                         </div>
                     </div>
 

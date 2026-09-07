@@ -1,6 +1,52 @@
 # Changelog
 
-All notable changes to Rem God Catcher will be documented in this file.
+All notable changes to Rems Dl will be documented in this file.
+
+---
+
+## [Unreleased]
+
+### Added
+- **Release Automation:** New `.github/workflows/release.yml` builds the Windows `.exe`, Linux binary, and Docker image on every `v*` tag and attaches them to the GitHub Release (binaries) / GHCR (image).
+- **Headless/Server Mode:** `REMS_HEADLESS=1` (or `--headless` / `--server` / `--no-window`) serves the UI on `0.0.0.0:$PORT` without opening a window and without auto-shutdown on tab close. The Docker image uses it by default.
+- **Ephemeral Desktop Port:** Desktop runs bind an ephemeral `127.0.0.1` loopback port, so the app never clashes with other software and two copies can run side by side.
+- **`.env.example` + `requirements.docker.txt`:** Copy-paste starter config and a server-only dependency set (no `pywebview`) for containers.
+- **Light-Mode Fixes:** Worker filter/info bars, native selects, custom dropdowns, and autosuggest popups are now theme-aware and readable in light mode.
+
+### Changed
+- **Desktop-First Positioning:** The app is documented and built as a native desktop application (`pywebview` window); the Flask backend is internal loopback only. Docker remains the zero-setup fallback for Linux hosts.
+- **gallery-dl Patch Folded Into Code:** Removed the `gallery_dl_patch/` GPL file copy. New `core/gallery_dl_interop.py` (MIT) enables `page-html` on the user's own installed gallery-dl copy at runtime in source runs; frozen builds always use the built-in Zerochan JSON API engine. Nothing to apply by hand, no GPL text shipped.
+- **Leaner Dependencies:** Dropped unused `opencv-python` and `gunicorn` from requirements (smaller builds, no libGL system dependency on Linux).
+
+### Fixed
+- **License Documentation:** `LICENSE` now carries third-party notices (MIT own code; `workers/pixiv.py` GPL-2.0-only; gallery-dl external GPL-2.0-only, never bundled; `rule34Py` library GPL-3.0-only). `Rems_Dl.spec` no longer bundles gallery-dl.
+- **`Rems_Dl.spec` Is Now Committed:** `.gitignore` no longer excludes `*.spec`, so the build spec ships with the repo.
+
+---
+
+## [5.1.0] - Rem 5.1: Pixiv, Gsbooru & Rating Overhaul - 2026-09-05
+
+### Added
+- **Pixiv Support:** New worker adapted from gallery-dl (Pixiv extractor + utilities) with ugoira-to-GIF conversion via Pillow, wired into the `BaseDownloader` pipeline.
+- **Gsbooru Rewrite:** Fully rewritten worker with tag caching (`database/gsbooru_tag_names.json`) and categorized tag extraction.
+- **Gallery Sources Endpoint:** New `/api/gallery/sources` API with per-site counts for filtered gallery views.
+- **Gallery UI Polish:** Custom select dropdowns, circular nav buttons, adjustable favorite font size, and video play icons.
+- **Mute Auth Warnings Toggle:** New option to hide soft auth warnings for Sankaku/Konachan.
+- **Linux Desktop Launcher:** New `Rems_Dl.desktop` entry pointing at `icon/icon.png`; browser favicon (`web/icon.png`) added.
+- **PyInstaller Build Spec:** New `Rems_Dl.spec` for one-command Windows `.exe` builds.
+
+### Changed
+- **Project Renamed to Rems Dl:** Entry point renamed `Rem_catcher.py` → `Rems_Dl.py` (Docker CMD, import checks, and docs updated). All `Rem God` / `RemGodCatcher` branding, User-Agent strings (`Rems_Dl/5.0`), PNG/JPEG metadata tags, window title, and download folder default changed to `Rems Dl`. The legacy `Rem God` download folder auto-migrates to `Rems Dl` on first run.
+- **Zerochan Tag Engine:** Page-by-page enumeration via gallery-dl plus an HTML tag parser returning categorized tags (artist/character/copyright/metadata/tag).
+- **Unified Rating System:** All workers now append rating tags (`rating:g/s/q/e`). `SUPPORTED_RATINGS` extended with nekosapi, nekosia, and waifu.im; aliases expanded (`suggestive` → sensitive, `borderline` → questionable). NekosAPI `Suggestive` folder renamed to `Sensitive`; Nekosia files now sort into rating subdirectories.
+- **Rule34 Tab Rework:** Filter grid rebuilt with cleaner layout (method/sort/format/exclude rows).
+- **Pinterest & Sankaku Workers:** Robustness and auth-handling improvements.
+- **Core Restructure:** `shared.py`, `database.py`, and `check_imports.py` moved into the `core/` package (`core.shared`, `core.database`); workers import from `core.shared`.
+- **Desktop Runtime:** `requirements.txt` gains `pywebview` (standalone native window, no manual browser needed) and `gunicorn` (production serving option).
+
+### Fixed
+- **Gallery Rescan Reliability:** Startup rescan backfills missing tags/filepaths and prunes dead entries for manually deleted files.
+- **Sankaku/Konachan Auth Noise:** Soft login warnings can now be muted without hiding real errors.
 
 ---
 
@@ -22,8 +68,6 @@ All notable changes to Rem God Catcher will be documented in this file.
 - **JavaScript UI Crashes:** Fixed syntax errors inside `update_script.py` rendering `script.js` that caused "Loading..." locks on UI tabs.
 - **Nekosia JSON Structure:** Handled irregular API output from Nekosia where single images returned as dicts instead of arrays.
 
-All notable changes to Rem God Catcher will be documented in this file.
-
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
@@ -37,7 +81,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - **All Workers Rewritten** -- `danbooru.py`, `gelbooru.py`, `konachan.py`, `nekos_best.py`, `nekos_life.py`, `rule34.py`, `safebooru.py`, `waifu_im.py`, `yande.py`, `zerochan.py` converted from procedural functions to OOP classes inheriting `BaseDownloader`.
-- **User-Agent Header** -- Changed from Chrome browser UA (`Mozilla/5.0 ... Chrome/120.0.0.0`) to app-format UA (`RemGodCatcher/4.0 (by RemLover on GitHub)`). Fixes 403 Forbidden on Danbooru (which blocks browser UAs on API) and reduces Cloudflare flags on Nekos.best.
+- **User-Agent Header** -- Changed from Chrome browser UA (`Mozilla/5.0 ... Chrome/120.0.0.0`) to app-format UA (`Rems_Dl/5.0 (by RemLover on GitHub)`). Fixes 403 Forbidden on Danbooru (which blocks browser UAs on API) and reduces Cloudflare flags on Nekos.best.
 - **shared.py** -- Removed old per-site `get_session()` function. Session setup now lives in `BaseDownloader._setup_session()` with a single standardized UA for all workers. Added `asyncio` import and `BaseDownloader` class with two-phase pipeline: `_async_download_file()`, `_download_worker()`, and `run_async_loop()`. Download count now shows actual total (not user limit).
 - **Zerochan API URL** -- Removed duplicate `p=1` parameter caused by embedding page number in both the URL query string and `params` dict. Parameters now sent cleanly via `params={"json": "1", "p": page, "l": 48}`. Fixes 503 Service Temporarily Unavailable from Cloudflare.
 - **Mutable Default Argument** -- `send_tags()` default `artist_list=[]` changed to `artist_list=None` to prevent shared mutable state bugs.

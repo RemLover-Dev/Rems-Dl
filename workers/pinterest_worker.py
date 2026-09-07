@@ -2,7 +2,7 @@ import os, re, json, random
 import asyncio
 from pathlib import Path
 from workers import BaseWorker
-import shared
+import core.shared as shared
 
 
 def _disable_brotli():

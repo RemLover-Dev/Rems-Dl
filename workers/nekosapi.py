@@ -1,6 +1,6 @@
 import os
 import asyncio
-from shared import BaseDownloader
+from core.shared import BaseDownloader
 
 class NekosApiWorker(BaseDownloader):
     def __init__(self, tags, amount, rating, net_config):

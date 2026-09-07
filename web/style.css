@@ -1,5 +1,5 @@
 /* ==========================================
- *  Rem God Catcher - Glass UI Theme
+ *  Rems Dl - Glass UI Theme
  *  Font: Inter + Source Code Pro
  *  ========================================== */
 
@@ -483,6 +483,63 @@ input:focus, select:focus {
 .settings-card .field-row { display: flex; align-items: center; gap: 10px; }
 .settings-card label { font-size: 13px; min-width: 110px; }
 
+/* ===== FILTER / INFO BARS (theme-aware worker panels) ===== */
+.filter-bar {
+    margin-top: 10px;
+    font-size: 14px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+.info-box {
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+[data-theme="light"] .filter-bar {
+    background: rgba(255, 255, 255, 0.65);
+    border-color: rgba(0, 0, 0, 0.15);
+}
+[data-theme="light"] .info-box {
+    background: rgba(255, 255, 255, 0.6);
+    border-color: rgba(0, 0, 0, 0.15);
+}
+[data-theme="light"] .dual-progress-container {
+    background: rgba(255, 255, 255, 0.6);
+}
+
+/* ===== LIGHT-MODE DROPDOWNS (custom select + autosuggest) ===== */
+[data-theme="light"] .custom-select .cs-trigger {
+    background: rgba(255, 255, 255, 0.85);
+    color: #1a1a2e;
+    border-color: rgba(0, 0, 0, 0.3);
+}
+[data-theme="light"] .custom-select .cs-menu {
+    background: #ffffff;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+[data-theme="light"] .custom-select .cs-item { color: #33334d; }
+[data-theme="light"] .custom-select .cs-item:hover,
+[data-theme="light"] .custom-select .cs-item.active {
+    background: rgba(0, 122, 122, 0.15);
+    color: #004d4d;
+}
+[data-theme="light"] .autosuggest-dropdown {
+    background: #ffffff;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+[data-theme="light"] .autosuggest-item {
+    color: #1a1a2e;
+    border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .autosuggest-item:hover,
+[data-theme="light"] .autosuggest-item.active {
+    background: var(--title-color);
+    color: #ffffff;
+}
+
 /* Options Scroll */
 .options-scroll { height: 100%; overflow-y: auto; padding-right: 8px; }
 .options-scroll::-webkit-scrollbar { width: 8px; }
@@ -546,7 +603,15 @@ select {
 select:hover { border-color: var(--title-color); box-shadow: 0 0 6px rgba(0, 210, 211, 0.3); }
 select option { background: #0a0e17; color: #ffffff; font-weight: 500; }
 select option:hover, select option:checked { background: var(--title-color); color: #0a0a0a; }
-[data-theme="light"] select { color: #ffffff !important; background: #0a0e17 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%2300d2d3' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>") no-repeat right 12px center !important; border: 1px solid var(--title-color) !important; }
+[data-theme="light"] select {
+    color: #1a1a2e !important;
+    background: rgba(255, 255, 255, 0.85) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23007878' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>") no-repeat right 12px center !important;
+    border: 1px solid rgba(0, 0, 0, 0.3) !important;
+}
+[data-theme="light"] select option {
+    background: #ffffff !important;
+    color: #1a1a2e !important;
+}
 
 /* ===== CUSTOM SELECT (matches autosuggest dropdown) ===== */
 .custom-select { position: relative; display: inline-block; }
@@ -617,6 +682,16 @@ select option:hover, select option:checked { background: var(--title-color); col
 }
 .custom-select .cs-item:hover, .custom-select .cs-item.active { background: rgba(0, 210, 211, 0.3); color: #fff; }
 
+/* ===== RULE34 CONTROLS (aligned grid, full words, uniform heights) ===== */
+#Rule34 .r34-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+#Rule34 .r34-row { margin-top: 0; align-items: center; }
+#Rule34 .r34-row > label { min-width: 64px; flex-shrink: 0; font-size: 13px; color: var(--text-color); }
+#Rule34 .r34-row .custom-select { flex: 1 1 auto; min-width: 0; display: inline-flex; }
+#Rule34 .r34-row .cs-trigger { flex: 1 1 auto; width: 100%; min-height: 26px; box-sizing: border-box; padding: 3px 10px; font-size: 13px; }
+#Rule34 .r34-checks { display: flex; align-items: center; gap: 5px 12px; flex-wrap: wrap; }
+#Rule34 .r34-checks label { margin: 0; font-size: 13px; display: inline-flex; align-items: center; cursor: pointer; }
+#Rule34 input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var(--title-color); cursor: pointer; vertical-align: middle; }
+
 /* ===== TOAST NOTIFICATION ===== */
 .toast-container {
     position: fixed;
@@ -643,6 +718,11 @@ select option:hover, select option:checked { background: var(--title-color); col
     animation: toastSlideIn 0.35s ease forwards;
 }
 .toast-item.fade-out { animation: toastSlideOut 0.3s ease forwards; }
+.toast-icon { font-size: 18px; line-height: 1; flex-shrink: 0; }
+.toast-body { flex: 1; min-width: 0; }
+.toast-title { color: var(--text-color, #fff); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.toast-dismiss { flex-shrink: 0; width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; color: #fff; font-size: 12px; line-height: 1; cursor: pointer; }
+.toast-dismiss:hover { background: rgba(231, 76, 60, 0.35); border-color: rgba(231, 76, 60, 0.7); }
 @keyframes toastSlideIn { 0% { transform: translateX(120%); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
 @keyframes toastSlideOut { 0% { transform: translateX(0); opacity: 1; } 100% { transform: translateX(120%); opacity: 0; } }
 

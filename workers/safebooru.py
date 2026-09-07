@@ -2,7 +2,7 @@ import os, re
 import asyncio
 import xml.etree.ElementTree as ET
 from workers import BaseWorker
-import shared
+import core.shared as shared
 
 
 class SafebooruWorker(BaseWorker):

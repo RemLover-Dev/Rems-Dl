@@ -1,12 +1,12 @@
 import os
 import sys
+import time
 import threading
 import requests
 import urllib3
 import urllib.parse
 import random
 import hashlib
-import webbrowser
 from PIL import Image
 from datetime import datetime
 
@@ -15,7 +15,7 @@ from flask_socketio import SocketIO
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from dotenv import load_dotenv
-from database import DatabaseManager, SettingsManager
+from core.database import DatabaseManager, SettingsManager
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -28,7 +28,8 @@ else:
 
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-import shared
+import core.shared as shared
+# import core.check_imports
 from workers.rule34 import worker_rule34
 from workers.safebooru import worker_safebooru
 from workers.zerochan import worker_zerochan
@@ -45,7 +46,18 @@ from workers.anime_dl import worker_anime_dl
 from workers.pinterest_worker import worker_pinterest
 from workers.pixiv import worker_pixiv
 
-MASTER_FOLDER = os.path.join(BASE_DIR, "Rem God")
+APP_NAME = "Rems Dl"
+DOWNLOAD_DIR_NAME = "Rems Dl"
+LEGACY_DOWNLOAD_DIR_NAME = "Rem God"
+
+MASTER_FOLDER = os.path.join(BASE_DIR, DOWNLOAD_DIR_NAME)
+# Auto-migrate legacy "Rem God" download folder to "Rems Dl" (one-time, safe).
+if os.path.isdir(os.path.join(BASE_DIR, LEGACY_DOWNLOAD_DIR_NAME)) and not os.path.isdir(MASTER_FOLDER):
+    try:
+        os.rename(os.path.join(BASE_DIR, LEGACY_DOWNLOAD_DIR_NAME), MASTER_FOLDER)
+        print(f"Migrated legacy '{LEGACY_DOWNLOAD_DIR_NAME}' folder to '{DOWNLOAD_DIR_NAME}'.")
+    except Exception as e:
+        print(f"Folder migration warning: {e}")
 DATABASE_DIR = os.path.join(BASE_DIR, "database")
 
 settings = SettingsManager(BASE_DIR)
@@ -103,28 +115,80 @@ def socketio_emit(event, data):
 
 shared.emit_callback = socketio_emit
 
-def write_hydrus_sidecar(worker_name, filename, tags_list, artist_list):
+def _normalize_tag_entries(raw):
+    """Coerce list[str] | list[dict] tag DB entries into list[str]."""
+    out = []
+    if not isinstance(raw, list):
+        return out
+    for item in raw:
+        name = None
+        if isinstance(item, str):
+            name = item
+        elif isinstance(item, dict):
+            for key in ("tag", "title", "name", "value", "label", "slug"):
+                val = item.get(key)
+                if isinstance(val, str) and val.strip():
+                    name = val
+                    break
+        if name:
+            name = str(name).strip()
+            if name:
+                out.append(name)
+    return out
+
+
+def _filter_tags(db, query, limit=50):
+    """Case-insensitive prefix filter that never crashes on odd DB entries."""
+    if not db or not query:
+        return []
+    q = str(query).strip().lower()
+    if not q:
+        return []
+    results = []
+    for entry in db:
+        try:
+            if isinstance(entry, dict):
+                continue  # DBs are normalized at load; skip stragglers
+            text = str(entry).strip()
+            if text and text.lower().startswith(q):
+                results.append(text)
+                if len(results) >= limit:
+                    break
+        except Exception:
+            continue
+    return results
+
+
+def _live_tag_suggest(session, url, timeout=5):
+    """GET a public autocomplete endpoint and coerce the response to list[str]."""
     try:
-        match = None
-        for root, _, files in os.walk(MASTER_FOLDER):
-            if filename in files:
-                match = os.path.join(root, filename)
-                break
-        if not match:
-            return
-        directory = os.path.dirname(match)
-        base = os.path.basename(match)
-        sidecar_path = os.path.join(directory, f".{base}.txt")
-        lines = [t.strip() for t in tags_list if t.strip()]
-        lines += [f"creator:{a.strip()}" for a in artist_list if a.strip()]
-        lines.append(f"site:{worker_name}")
-        with open(sidecar_path, "w", encoding="utf-8") as f:
-            f.write("\n".join(lines))
-    except Exception as e:
-        print("Hydrus sidecar error:", e)
+        resp = session.get(url, timeout=timeout)
+        if resp.status_code != 200:
+            return []
+        try:
+            data = resp.json()
+        except Exception:
+            return []
+        out = []
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, str) and item.strip():
+                    out.append(item.strip())
+                elif isinstance(item, dict):
+                    for key in ("value", "name", "tag", "title", "label"):
+                        val = item.get(key)
+                        if isinstance(val, str) and val.strip():
+                            out.append(val.strip())
+                            break
+                if len(out) >= 50:
+                    break
+        return list(dict.fromkeys(out))[:50]
+    except Exception:
+        return []
 
 
 def get_session(site, net_config):
+    net_config = net_config or {}
     session = requests.Session()
     if net_config.get("use_proxy"):
         p = net_config.get("proxy_url")
@@ -133,13 +197,14 @@ def get_session(site, net_config):
         session.proxies = {"http": "", "https": "", "no_proxy": "*"}
     session.verify = net_config.get("verify_tls", False)
 
-    if site == "safe": session.headers.update({"User-Agent": "RemGodCatcher/2.0", "Accept": "application/json"})
+    if site == "safe": session.headers.update({"User-Agent": "Rems_Dl/5.0", "Accept": "application/json"})
     elif site == "zero":
         session.headers.update({"User-Agent": "Mozilla/5.0", "Accept": "text/html,application/json,*/*"})
         adapter = HTTPAdapter(max_retries=Retry(total=3, backoff_factor=2.0, status_forcelist=[429, 500, 502, 503, 504], allowed_methods=["GET"]))
         session.mount("https://", adapter); session.mount("http://", adapter)
-    elif site in ["waifu", "neko"]: session.headers.update({"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
-    elif site == "yande": session.headers.update({"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
+    else:
+        # Generic JSON-friendly UA for all booru/autocomplete fallbacks
+        session.headers.update({"User-Agent": "Mozilla/5.0 (Rems_Dl/5.0)", "Accept": "application/json"})
     return session
 
 
@@ -193,7 +258,7 @@ def folder_manager():
     if request.method == "POST":
         folder = request.json.get("folder", "")
         if folder:
-            shared.MASTER_FOLDER = os.path.join(folder, "Rem God")
+            shared.MASTER_FOLDER = os.path.join(folder, "Rems Dl")
             return jsonify({"folder": shared.MASTER_FOLDER})
     return jsonify({"folder": shared.MASTER_FOLDER})
 
@@ -223,29 +288,71 @@ def get_waifu_tags():
 
 @app.route("/api/tags/zerochan", methods=["POST"])
 def get_zerochan_suggestions():
-    data = request.json
-    query = data.get("query", "")
     try:
-        session = get_session("zero", data.get("net_config", {}))
-        session.headers.update({"X-Requested-With": "XMLHttpRequest", "Referer": "https://www.zerochan.net/"})
-        resp = session.get(f"https://www.zerochan.net/suggest?q={urllib.parse.quote_plus(query)}", timeout=5)
-        if resp.status_code == 200:
-            sugs = resp.json() if "{" in resp.text or "[" in resp.text else [s.strip() for s in resp.text.split('\n') if s.strip()]
-            return jsonify(list(dict.fromkeys([s.split('|')[0].strip() for s in sugs])))
-    except Exception: pass
-    return jsonify([])
+        data = request.json or {}
+        query = str(data.get("query", "") or "")
+        if len(query.strip()) < 2:
+            return jsonify([])
+        try:
+            session = get_session("zero", data.get("net_config", {}) or {})
+            session.headers.update({"X-Requested-With": "XMLHttpRequest", "Referer": "https://www.zerochan.net/"})
+            resp = session.get(f"https://www.zerochan.net/suggest?q={urllib.parse.quote_plus(query.strip())}", timeout=5)
+            if resp.status_code == 200:
+                try:
+                    if "{" in resp.text or "[" in resp.text:
+                        sugs = resp.json()
+                    else:
+                        sugs = [s.strip() for s in resp.text.split('\n') if s.strip()]
+                except Exception:
+                    sugs = [s.strip() for s in resp.text.split('\n') if s.strip()]
+                cleaned = []
+                for s in sugs:
+                    if isinstance(s, dict):
+                        for key in ("value", "name", "tag", "title", "label"):
+                            val = s.get(key)
+                            if isinstance(val, str) and val.strip():
+                                cleaned.append(val.split('|')[0].strip())
+                                break
+                    elif isinstance(s, str) and s.strip():
+                        cleaned.append(s.split('|')[0].strip())
+                cleaned = [c for c in dict.fromkeys(cleaned) if c]
+                if cleaned:
+                    return jsonify(cleaned[:50])
+        except Exception:
+            pass
+        return jsonify([])
+    except Exception:
+        return jsonify([])
 
 @app.route("/api/tags/safe", methods=["POST"])
 def get_safe_suggestions():
-    query = request.json.get("query", "").lower()
-    if not SAFE_TAGS_DB: return jsonify([])
-    return jsonify([t for t in SAFE_TAGS_DB if t.startswith(query)][:50])
+    try:
+        data = request.json or {}
+        query = str(data.get("query", "") or "")
+        if len(query.strip()) < 2:
+            return jsonify([])
+        local = _filter_tags(_normalize_tag_entries(SAFE_TAGS_DB), query)
+        if local:
+            return jsonify(local)
+        # Live fallback: Safebooru autocomplete
+        try:
+            session = get_session("safe", data.get("net_config", {}))
+            live = _live_tag_suggest(
+                session,
+                f"https://safebooru.org/autocomplete.php?q={urllib.parse.quote(query.strip())}")
+            if live:
+                return jsonify(live)
+        except Exception:
+            pass
+        return jsonify(local)
+    except Exception:
+        return jsonify([])
 
 @app.route("/api/tags/rule34", methods=["POST"])
 def get_rule34_suggestions():
-    data = request.json
-    query = data.get("query", "")
-    if len(query) < 2: return jsonify([])
+    data = request.json or {}
+    query = str(data.get("query", "") or "")
+    if len(query.strip()) < 2: return jsonify([])
     try:
         session = get_session("rule34", data.get("net_config", {}))
         url = f"https://api.rule34.xxx/autocomplete.php?q={urllib.parse.quote(query)}"
@@ -262,63 +369,224 @@ def get_rule34_suggestions():
 
 @app.route("/api/tags/yande", methods=["POST"])
 def get_yande_suggestions():
-    query = request.json.get("query", "").lower()
-    if not YANDE_TAGS_DB: return jsonify([])
-    return jsonify([t for t in YANDE_TAGS_DB if t.startswith(query)][:50])
+    try:
+        data = request.json or {}
+        query = str(data.get("query", "") or "")
+        if len(query.strip()) < 2:
+            return jsonify([])
+        local = _filter_tags(_normalize_tag_entries(YANDE_TAGS_DB), query)
+        if local:
+            return jsonify(local)
+        try:
+            session = get_session("yande", data.get("net_config", {}))
+            live = _live_tag_suggest(
+                session,
+                f"https://yande.re/tag/suggest.json?tag={urllib.parse.quote(query.strip())}")
+            if live:
+                return jsonify(live)
+        except Exception:
+            pass
+        return jsonify(local)
+    except Exception:
+        return jsonify([])
 
 @app.route("/api/tags/kona", methods=["POST"])
 def get_kona_suggestions():
-    query = request.json.get("query", "").lower()
-    if not KONA_TAGS_DB: return jsonify([])
-    return jsonify([t for t in KONA_TAGS_DB if t.startswith(query)][:50])
+    try:
+        data = request.json or {}
+        query = str(data.get("query", "") or "")
+        if len(query.strip()) < 2:
+            return jsonify([])
+        local = _filter_tags(_normalize_tag_entries(KONA_TAGS_DB), query)
+        if local:
+            return jsonify(local)
+        try:
+            session = get_session("kona", data.get("net_config", {}))
+            live = _live_tag_suggest(
+                session,
+                f"https://konachan.com/tag/suggest.json?tag={urllib.parse.quote(query.strip())}")
+            if live:
+                return jsonify(live)
+        except Exception:
+            pass
+        return jsonify(local)
+    except Exception:
+        return jsonify([])
 
 @app.route("/api/tags/dan", methods=["POST"])
 def get_dan_suggestions():
-    query = request.json.get("query", "").lower()
-    if not DAN_TAGS_DB: return jsonify([])
-    return jsonify([t for t in DAN_TAGS_DB if t.startswith(query)][:50])
+    try:
+        data = request.json or {}
+        query = str(data.get("query", "") or "")
+        if len(query.strip()) < 2:
+            return jsonify([])
+        local = _filter_tags(_normalize_tag_entries(DAN_TAGS_DB), query)
+        if local:
+            return jsonify(local)
+        # Live fallback: Danbooru autocomplete
+        try:
+            session = get_session("dan", data.get("net_config", {}))
+            live = _live_tag_suggest(
+                session,
+                f"https://danbooru.donmai.us/autocomplete.json?search[name_matches]={urllib.parse.quote(query.strip())}*")
+            if live:
+                return jsonify(live)
+        except Exception:
+            pass
+        return jsonify(local)
+    except Exception:
+        return jsonify([])
 
 @app.route("/api/tags/sankaku", methods=["POST"])
 def get_sankaku_suggestions():
-    query = request.json.get("query", "").lower()
-    if not SANKAKU_TAGS_DB: return jsonify([])
-    return jsonify([t for t in SANKAKU_TAGS_DB if t.startswith(query)][:50])
+    try:
+        data = request.json or {}
+        query = str(data.get("query", "") or "")
+        if len(query.strip()) < 2:
+            return jsonify([])
+        local = _filter_tags(_normalize_tag_entries(SANKAKU_TAGS_DB), query)
+        if local:
+            return jsonify(local)
+        try:
+            session = get_session("sankaku", data.get("net_config", {}))
+            live = _live_tag_suggest(
+                session,
+                f"https://capi-v2.sankakucomplex.com/autocomplete?tag={urllib.parse.quote(query.strip())}")
+            if live:
+                return jsonify(live)
+        except Exception:
+            pass
+        return jsonify(local)
+    except Exception:
+        return jsonify([])
 
 @app.route("/api/tags/gelbooru", methods=["POST"])
 def get_gelbooru_suggestions():
-    query = request.json.get("query", "").lower()
-    if not GELBOORU_TAGS_DB: return jsonify([])
-    return jsonify([t for t in GELBOORU_TAGS_DB if t.lower().startswith(query)][:50])
+    try:
+        data = request.json or {}
+        query = str(data.get("query", "") or "")
+        if len(query.strip()) < 2:
+            return jsonify([])
+        local = _filter_tags(_normalize_tag_entries(GELBOORU_TAGS_DB), query)
+        if local:
+            return jsonify(local)
+        try:
+            session = get_session("gelbooru", data.get("net_config", {}))
+            live = _live_tag_suggest(
+                session,
+                f"https://gelbooru.com/index.php?page=autocomplete2&term={urllib.parse.quote(query.strip())}&type=tag_query&limit=20")
+            if live:
+                return jsonify(live)
+        except Exception:
+            pass
+        return jsonify(local)
+    except Exception:
+        return jsonify([])
 
 @app.route("/api/tags/anime_dl", methods=["POST"])
 def get_anime_dl_suggestions():
-    query = request.json.get("query", "").lower()
-    if not ANIME_TAGS_DB: return jsonify([])
-    return jsonify([t for t in ANIME_TAGS_DB if t.startswith(query)][:50])
+    try:
+        data = request.json or {}
+        query = str(data.get("query", "") or "")
+        if len(query.strip()) < 2:
+            return jsonify([])
+        local = _filter_tags(_normalize_tag_entries(ANIME_TAGS_DB), query)
+        if local:
+            return jsonify(local)
+        # Live fallback: Anime-Pictures tag search (best-effort)
+        try:
+            session = get_session("anime_dl", data.get("net_config", {}))
+            live = _live_tag_suggest(
+                session,
+                f"https://anime-pictures.net/api/v3/tags?search={urllib.parse.quote(query.strip())}")
+            if live:
+                return jsonify(live)
+        except Exception:
+            pass
+        return jsonify(local)
+    except Exception:
+        return jsonify([])
 
 @app.route("/api/tags/eshuushuu", methods=["POST"])
 def get_eshuushuu_suggestions():
-    query = request.json.get("query", "").lower()
-    if not ESHUUSHUU_TAGS_DB: return jsonify([])
-    return jsonify([t for t in ESHUUSHUU_TAGS_DB if t.lower().startswith(query)][:50])
+    try:
+        data = request.json or {}
+        query = str(data.get("query", "") or "")
+        if len(query.strip()) < 2:
+            return jsonify([])
+        local = _filter_tags(_normalize_tag_entries(ESHUUSHUU_TAGS_DB), query)
+        if local:
+            return jsonify(local)
+        try:
+            session = get_session("eshuushuu", data.get("net_config", {}))
+            live = _live_tag_suggest(
+                session,
+                f"https://e-shuushuu.net/autocomplete.php?tag={urllib.parse.quote(query.strip())}")
+            if live:
+                return jsonify(live)
+        except Exception:
+            pass
+        return jsonify(local)
+    except Exception:
+        return jsonify([])
 
 @app.route("/api/tags/nekosapi", methods=["POST"])
 def get_nekosapi_suggestions():
-    query = request.json.get("query", "").lower()
-    if not NEKOSAPI_TAGS_DB: return jsonify([])
-    return jsonify([t for t in NEKOSAPI_TAGS_DB if t.lower().startswith(query)][:50])
+    try:
+        data = request.json or {}
+        query = str(data.get("query", "") or "")
+        if len(query.strip()) < 2:
+            return jsonify([])
+        local = _filter_tags(_normalize_tag_entries(NEKOSAPI_TAGS_DB), query)
+        if local:
+            return jsonify(local)
+        try:
+            session = get_session("nekosapi", data.get("net_config", {}))
+            live = _live_tag_suggest(
+                session,
+                f"https://nekosapi.com/api/v4/tags?search={urllib.parse.quote(query.strip())}")
+            if live:
+                return jsonify(live)
+        except Exception:
+            pass
+        return jsonify(local)
+    except Exception:
+        return jsonify([])
 
 @app.route("/api/tags/nekosia", methods=["POST"])
 def get_nekosia_suggestions():
-    query = request.json.get("query", "").lower()
-    if not NEKOSIA_TAGS_DB: return jsonify([])
-    return jsonify([t for t in NEKOSIA_TAGS_DB if t.lower().startswith(query)][:50])
+    try:
+        data = request.json or {}
+        query = str(data.get("query", "") or "")
+        if len(query.strip()) < 2:
+            return jsonify([])
+        local = _filter_tags(_normalize_tag_entries(NEKOSIA_TAGS_DB), query)
+        return jsonify(local)
+    except Exception:
+        return jsonify([])
 
 @app.route("/api/tags/gsbooru", methods=["POST"])
 def get_gsbooru_suggestions():
-    query = request.json.get("query", "").lower()
-    if not GSBOORU_TAGS_DB: return jsonify([])
-    return jsonify([t for t in GSBOORU_TAGS_DB if t.lower().startswith(query)][:50])
+    try:
+        data = request.json or {}
+        query = str(data.get("query", "") or "")
+        if len(query.strip()) < 2:
+            return jsonify([])
+        local = _filter_tags(_normalize_tag_entries(GSBOORU_TAGS_DB), query)
+        if local:
+            return jsonify(local)
+        try:
+            session = get_session("gsbooru", data.get("net_config", {}))
+            live = _live_tag_suggest(
+                session,
+                f"https://gsbooru.net/index.php?page=autocomplete2&term={urllib.parse.quote(query.strip())}&type=tag_query&limit=20")
+            if live:
+                return jsonify(live)
+        except Exception:
+            pass
+        return jsonify(local)
+    except Exception:
+        return jsonify([])
 
 # --- TAG HISTORY & FAVORITES API ---
 @app.route("/api/history", methods=["GET"])
@@ -694,7 +962,7 @@ def rescan_gallery():
 
 @app.route("/api/gallery/import", methods=["POST"])
 def import_gallery_from_history():
-    from shared import tags_dict_from_lists
+    from core.shared import tags_dict_from_lists
     hist = DatabaseManager.load_image_history()
     gallery = shared.load_gallery()
     existing = {i["filename"] for i in gallery["images"]}
@@ -745,10 +1013,15 @@ def handle_connect():
 @socketio.on("disconnect")
 def handle_disconnect():
     global shutdown_timer
+    if _is_headless():
+        # Container/server mode: browsers connect and disconnect freely;
+        # never shut the app down because a tab was closed.
+        print("Browser Tab Closed (headless mode: staying alive).")
+        return
     print("Browser Tab Closed! Shutting down in 3 seconds if not reconnected...")
 
     def shutdown_server():
-        print(">>> No active tabs. Killing Rem God Catcher Server... <<<")
+        print(">>> No active tabs. Killing Rems Dl Server... <<<")
         os._exit(0)
 
     shutdown_timer = threading.Timer(3.0, shutdown_server)
@@ -761,6 +1034,19 @@ def handle_start_worker(data):
     worker = data.get("worker")
     net_config = data.get("net_config", {})
 
+    # A fresh START must never leave a previous run of the same worker
+    # orphaned (double-clicking START used to create two live runs sharing
+    # one name; STOP then only reached the newest and the older one kept
+    # downloading forever). Signal any previous runs to wind down first.
+    try:
+        for evt in list(shared.STOP_EVENTS.get(worker, [])):
+            try:
+                evt.set()
+            except Exception:
+                pass
+    except Exception:
+        pass
+
     tag = data.get("tag", data.get("category", "")).strip()
 
     if tag:
@@ -770,9 +1056,18 @@ def handle_start_worker(data):
             print("History Save Error:", e)
 
     if worker == "zero":
-        net_config["zerochan_login"] = os.getenv("ZEROCHAN_LOGIN") or os.getenv("ZEROCHAN_USERNAME", "")
-        net_config["zerochan_password"] = os.getenv("ZEROCHAN_PASSWORD", "")
-        threading.Thread(target=worker_zerochan, args=(data.get("tag", ""), int(data.get("limit", 50)), net_config), daemon=True).start()
+        # Credentials: prefer what the Settings UI just sent; fall back to .env.
+        # (Previously env always overwrote the payload, so freshly typed
+        # logins never reached the worker.)
+        if not (net_config.get("zerochan_login") or "").strip():
+            net_config["zerochan_login"] = os.getenv("ZEROCHAN_LOGIN") or os.getenv("ZEROCHAN_USERNAME", "")
+        if not (net_config.get("zerochan_password") or "").strip():
+            net_config["zerochan_password"] = os.getenv("ZEROCHAN_PASSWORD", "")
+        try:
+            zero_limit = int(data.get("limit", 50) or 50)
+        except (TypeError, ValueError):
+            zero_limit = 50
+        threading.Thread(target=worker_zerochan, args=(data.get("tag", ""), zero_limit, net_config), daemon=True).start()
     elif worker == "waifu": threading.Thread(target=worker_waifu, args=(data.get("tag", ""), int(data.get("limit", 30)), data.get("nsfw", False), net_config), daemon=True).start()
     elif worker == "neko": threading.Thread(target=worker_nekos_best, args=(data.get("category", ""), int(data.get("limit", 20)), net_config), daemon=True).start()
     elif worker == "safe": threading.Thread(target=worker_safebooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("exclusions", []), net_config), daemon=True).start()
@@ -857,9 +1152,36 @@ def startup_rescan():
     if count or removed:
         shared.save_gallery(gallery)
 
+def _is_headless():
+    """True inside containers / CI / explicit server mode.
+
+    Desktop runs open a native pywebview window (no browser needed); the
+    bundled Flask server only listens on the 127.0.0.1 loopback. The Docker
+    image sets REMS_HEADLESS=1 and serves the same UI over HTTP instead.
+    """
+    if os.getenv("REMS_HEADLESS", "").strip() == "1":
+        return True
+    return any(a in ("--headless", "--server", "--no-window")
+               for a in sys.argv[1:])
+
+
+def _pick_loopback_port():
+    """An ephemeral 127.0.0.1 port, so desktop runs never clash with
+    anything else on the machine (and two copies can run side by side)."""
+    import socket as _socket
+    with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return int(s.getsockname()[1])
+
+
+def _run_flask_server(_host, _port):
+    socketio.run(app, host=_host, port=_port, debug=False,
+                 allow_unsafe_werkzeug=True)
+
+
 if __name__ == "__main__":
     SAFE_TAGS_DB = DatabaseManager.load_safe_tags()
-    WAIFU_TAGS_DB, WAIFU_TAG_MAP = DatabaseManager.load_waifu_tags()
+    WAIFU_TAGS_DB, WAIFU_TAG_MAP = DatabaseManager._load_waifu_tags()
     shared.WAIFU_TAG_MAP = WAIFU_TAG_MAP
     YANDE_TAGS_DB = DatabaseManager.load_yande_tags()
     KONA_TAGS_DB = DatabaseManager.load_kona_tags()
@@ -872,8 +1194,47 @@ if __name__ == "__main__":
     NEKOSIA_TAGS_DB = DatabaseManager.load_nekosia_tags()
     GSBOORU_TAGS_DB = DatabaseManager.load_gsbooru_tags()
     startup_rescan()
-    port = 5000
-    url = f"http://127.0.0.1:{port}"
-    print(f"Starting Rem God Catcher Web UI on {url} ...")
-    webbrowser.open(url)
-    socketio.run(app, host="127.0.0.1", port=port, debug=False, allow_unsafe_werkzeug=True)
+    if _is_headless():
+        # Container / server mode: fixed port, reachable from outside the
+        # container. Stays alive across browser connects/disconnects.
+        _headless_port = int(os.getenv("PORT", "5000"))
+        print(f"Starting Rems Dl (headless server mode) on 0.0.0.0:{_headless_port} ...")
+        _run_flask_server("0.0.0.0", _headless_port)
+    else:
+        port = _pick_loopback_port()
+        url = f"http://127.0.0.1:{port}"
+        print(f"Starting Rems Dl desktop app ({url} on internal loopback) ...")
+        # Standalone desktop app: Flask/SocketIO runs in a background daemon
+        # thread while pywebview owns the main thread as a native GUI window.
+        # pywebview handles OS-level webview dependencies natively on both
+        # Windows (WebView2) and Linux (WebKitGTK), so no manual browser needed.
+        try:
+            import webview as _pywebview
+            _has_webview = True
+        except ImportError:
+            _has_webview = False
+            _pywebview = None
+
+        if _has_webview:
+            server_thread = threading.Thread(
+                target=_run_flask_server, args=("127.0.0.1", port), daemon=True)
+            server_thread.start()
+            # Give the socket server a moment to bind before the window loads it.
+            time.sleep(1.0)
+            try:
+                _pywebview.create_window("Rems Dl", url, width=1280, height=800)
+                _pywebview.start()
+            except Exception as e:
+                print(f"pywebview failed ({e}); falling back to blocking server mode.")
+                _run_flask_server("127.0.0.1", port)
+            # Window closed -> terminate (the disconnect auto-shutdown also fires).
+            os._exit(0)
+        else:
+            print("pywebview not installed; running in browser mode. "
+                  "Install requirements to get the standalone desktop window.")
+            try:
+                import webbrowser as _wb
+                _wb.open(url)
+            except Exception:
+                pass
+            _run_flask_server("127.0.0.1", port)

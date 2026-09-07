@@ -19,3 +19,46 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+--------------------------------------------------------------------------------
+THIRD-PARTY / LICENSE NOTICES
+--------------------------------------------------------------------------------
+
+This repository is MIT-licensed (see above) with the following exceptions
+and external dependencies. If you redistribute the application -- especially
+the prebuilt binaries from GitHub Releases -- you must comply with these
+licenses for the parts they cover.
+
+1. workers/pixiv.py -- GPL-2.0-only
+   This file contains code adapted from gallery-dl
+   (https://codeberg.org/mikf/gallery-dl, Copyright 2014-2026 Mike Faehrmann,
+   license GPL-2.0-only). It is therefore distributed under the terms of the
+   GNU General Public License version 2, not MIT. See the header of that
+   file and https://www.gnu.org/licenses/old-licenses/gpl-2.0.html.
+
+2. gallery-dl tool (external, optional, never bundled) -- GPL-2.0-only
+   The Zerochan worker can drive a separately installed copy of gallery-dl
+   out-of-process (``python -m gallery_dl``). No gallery-dl code is shipped
+   in this repository or inside the prebuilt binaries. At startup (source
+   runs only), core/gallery_dl_interop.py (MIT, our own code) may enable the
+   ``page-html`` option inside the user's *own installed copy* of
+   gallery-dl; frozen builds skip this and use the built-in Zerochan JSON
+   API engine instead. gallery-dl remains governed solely by its own
+   GPL-2.0-only license: https://codeberg.org/mikf/gallery-dl
+
+3. rule34Py library (external dependency, bundled in binaries) -- GPL-3.0-only
+   The Rule34 worker imports the rule34Py package
+   (https://pypi.org/project/rule34Py/), which is licensed GPL-3.0-only. It
+   is installed via pip (see requirements.txt) and, as an imported library,
+   is also contained in the PyInstaller binaries published with GitHub
+   Releases. Everyone who receives a binary therefore also receives
+   GPL-3.0-covered code; the corresponding source is the upstream rule34Py
+   release pinned in requirements.txt plus this repository. See
+   https://www.gnu.org/licenses/gpl-3.0.html.
+
+In short: our own code is MIT; workers/pixiv.py is GPL-2.0-only; gallery-dl
+is an external GPL-2.0-only tool that is used but never distributed; and the
+rule34Py library (GPL-3.0-only) travels with the dependency install and the
+prebuilt binaries. MIT code may be combined into GPL-covered distributions,
+so distributing the whole application under the GPL terms for the combined
+work satisfies all of the above.

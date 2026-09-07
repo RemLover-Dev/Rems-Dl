@@ -1,6 +1,7 @@
 ﻿# ========================
 # Downloaded Content & User Data (NEVER UPLOAD)
 # ========================
+Rems Dl/
 Rem God/
 Safebooru/
 Rule34/
@@ -8,6 +9,9 @@ Zerochan/
 Waifu.im/
 Nekos.best/
 user_wallpapers/
+
+# Partial / in-progress downloads
+*.part
 
 # User History and Favorites Databases
 tag_history.json
@@ -28,15 +32,36 @@ __pycache__/
 *.pyc
 *.pyo
 venv/
+.venv/
 env/
 .env
+!.env.example
 
 # ========================
 # Build & Executable Files
 # ========================
+# NOTE: Rems_Dl.spec is the build recipe and MUST be committed --
+# only the outputs below are ignored.
 build/
 dist/
 *.spec
+!Rems_Dl.spec
+
+# Locally-made release archives (CI attaches these to GitHub Releases)
+Rems_Dl-*.zip
+Rems_Dl-*.tar.gz
+*.sha256
+
+# Logs & debug dumps
+*.log
+*.backup.json
+
+# ========================
+# Test & Tool Caches
+# ========================
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Gallery DB & thumb cache
 database/gallery.json
@@ -44,6 +69,7 @@ database/tag_history.json
 database/image_history.json
 database/fav_tags.json
 database/thumb_cache/
+database/.gsbooru_tags_state.json
 
 # Do not upload multi agent and gemini dump
 multi_agent.py

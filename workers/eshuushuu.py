@@ -1,5 +1,5 @@
 import os, re, asyncio, json
-from shared import BaseDownloader
+from core.shared import BaseDownloader
 
 class EShuushuuWorker(BaseDownloader):
     def __init__(self, tag, amount, exclusions, user_id, net_config):

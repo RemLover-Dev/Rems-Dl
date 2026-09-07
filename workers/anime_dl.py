@@ -1,7 +1,7 @@
 ﻿import os
 import asyncio
 from curl_cffi import requests as curl_requests
-from shared import BaseDownloader, MASTER_FOLDER, add_to_gallery, send_tags, write_image_metadata, save_history
+from core.shared import BaseDownloader, MASTER_FOLDER, add_to_gallery, send_tags, write_image_metadata, save_history
 
 API = "https://api.anime-pictures.net/api/v3"
 PER_PAGE = 80
