@@ -1,20 +1,30 @@
 <div align="center">
 
-# Rem God Catcher 5.0
+# Rems Dl 5.1
 
-**A massive multi-threaded image & media scraping application with a beautiful glass-morphism web UI.**
+**A massive multi-threaded image & media scraping application with a beautiful glass-morphism UI.**
 
-Supports Rule34, Safebooru, Gelbooru, Zerochan, Waifu.im, Nekos.best, Nekos.life, Yande.re, Konachan, Danbooru, e-shuushuu, NekosAPI, Nekosia, and Pinterest.
+Rems Dl is a **native desktop application** (powered by `pywebview`): it opens as a real app window, not a hosted website. The Python backend only listens on the `127.0.0.1` loopback with an ephemeral port -- nothing is exposed to your network and no browser setup is needed.
+
+Supports Rule34, Safebooru, Gelbooru, Gsbooru, Zerochan, Waifu.im, Nekos.best, Nekos.life, Yande.re, Konachan, Danbooru, Sankaku, e-shuushuu, NekosAPI, Nekosia, AnimePictures, Pixiv, and Pinterest.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://python.org)
-[![Version](https://img.shields.io/badge/Version-5.0.0-ff9ff3.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-5.1.0-ff9ff3.svg)](CHANGELOG.md)
 
-[English](README.md) | [فارسی](README_fa.md)
+[English](README.md) | [فارسی](README_fa.md) | [Linux & Docker](#-run-on-linux--docker)
 
 </div>
 
 ---
+
+## ✨ New in Version 5.1 (Rem 5.1)
+- **Pixiv Support:** Brand-new worker (gallery-dl based) with ugoira-to-GIF conversion.
+- **Gsbooru Rewrite:** Tag caching + categorized tag extraction for lightning-fast autocomplete.
+- **Unified Rating System:** Every worker appends `rating:g/s/q/e` tags; rating-aware folders and gallery filters everywhere.
+- **Zerochan Tag Engine:** Page-by-page enumeration with a full HTML tag parser (artist/character/copyright/metadata/tag).
+- **Project Renamed to Rems Dl:** Entry point is now `Rems_Dl.py`; your old `Rem God` download folder auto-migrates on first run.
+- **Standalone Desktop Window:** `pywebview` runtime -- no manual browser needed on Windows or Linux.
 
 ## ✨ New in Version 5.0
 - **Beautiful Auto-Suggest:** Fully restyled interactive tag suggestions for ALL workers with keyboard support.
@@ -26,22 +36,28 @@ Supports Rule34, Safebooru, Gelbooru, Zerochan, Waifu.im, Nekos.best, Nekos.life
 
 ## Quick Start
 
+### 0. No-setup option: download a prebuilt release
+
+Grab the latest `Rems_Dl-Windows.zip` (`.exe`, WebView2 is preinstalled on Windows 10/11) or `Rems_Dl-Linux.tar.gz` from [GitHub Releases](../../releases). Unzip, run, done -- no Python needed. A Docker image (`ghcr.io/remlover-dev/rems-dl:latest`) is published there too for hosts where you want zero system dependencies (see [Run on Linux / Docker](#-run-on-linux--docker)).
+
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/RemLover-Dev/RemGodCatcher.git
-cd RemGodCatcher
+git clone https://github.com/RemLover-Dev/Rems-Dl
+cd Rems-Dl
 ```
 
 ### 2. Install Dependencies
 
+You can install all necessary packages easily from the provided `requirements.txt` file.
+
 ```bash
-pip install flask flask-socketio requests urllib3 python-dotenv rule34Py
+pip install -r requirements.txt
 ```
 
 ### 3. Configure (Optional)
 
-Edit `.env` or use the **Options** tab in the Web UI:
+Copy `.env.example` to `.env`, or use the **Options** tab in the app UI:
 
 ```env
 RULE34_API_KEY=your_api_key_here
@@ -57,10 +73,12 @@ ANTI_BAN_PAUSE=3.0
 ### 4. Run
 
 ```bash
-python Rem_catcher.py
+python Rems_Dl.py
 ```
 
-The Web UI opens automatically at `http://127.0.0.1:5000`.
+The native desktop window opens automatically (or the UI opens in your browser at a `http://127.0.0.1:<port>` loopback address if `pywebview` is not installed). Headless/server usage: `REMS_HEADLESS=1 python Rems_Dl.py [--headless]` (also used by the Docker image).
+
+> **Upgrading from 5.0?** Your old `Rem God` download folder is auto-renamed to `Rems Dl` on first launch. Nothing to do manually.
 
 ---
 
@@ -95,8 +113,8 @@ Entering credentials in the **Settings** tab unlocks higher API limits and restr
 
 ## Features
 
-- **Multi-Platform** -- Built-in modules for 10 imageboard APIs (including Danbooru)
-- **Modern Web UI** -- Glass-morphism dark & light themes, opens in your default browser
+- **Multi-Platform** -- Built-in modules for 18 imageboard/API sources (including Danbooru, Sankaku, Pixiv, and Gsbooru)
+- **Modern UI** -- Glass-morphism dark & light themes in a native desktop window
 - **Discovery Engine & Archives** -- Live extraction of tags and artists from downloaded media, displayed in a dedicated Image Archive tab.
 - **Favorites & Search History** -- Add tags to your favorites list for one-click search automation, and maintain a log of your search history.
 - **Video & GIF Support** -- Exclusively target `.mp4`, `.webm`, or GIF files via format filtering.
@@ -114,33 +132,35 @@ Entering credentials in the **Settings** tab unlocks higher API limits and restr
 
 ## Project Structure
 
+Source code only (docs, build output, downloads, and per-user data are not listed):
+
 ```
-Rem God Catcher/
-├── Rem_catcher.py          # Python backend (Flask + Socket.IO)
-├── shared.py               # Core utilities, tag handler, and logging bridge
-├── workers/                # API-specific download modules
-├── tags.json               # Waifu.im tag database (name -> slug mapping)
-├── database/               # Tag databases & user data
-│   ├── dan_tag_names.json      # Danbooru offline tag database
-│   ├── safe_tag_names.json     # Safebooru offline tag database
-│   ├── yande_tag_names.json    # Yande.re offline tag database
-│   ├── kona_tag_names.json     # Konachan offline tag database (82k+ tags)
-│   ├── tag_history.json        # Search history database (git-ignored)
-│   ├── fav_tags.json           # User favorites database (git-ignored)
-│   ├── image_history.json      # Per-image tag archive (git-ignored)
-│   └── ui_config.json          # Theme & wallpaper config (git-ignored)
-├── .env                    # API keys & proxy config (git-ignored)
-├── .gitignore
-├── LICENSE
-├── README.md
-├── README_fa.md            # Persian documentation
-├── CHANGELOG.md
-└── web/
-    ├── index.html           # Main HTML (tabs, forms, archives, settings)
-    ├── script.js            # Frontend logic (Socket.IO + fetch API)
-    ├── style.css            # Glass-morphism dark theme (Inter font)
-    ├── Fonts/               # Offline fonts (Playfair, MonoLisa)
-    └── wallpaper/           # Background images per tab (dark/light mode)
+Rems Dl/
+├── Rems_Dl.py              # App entry point: native desktop window + internal backend
+├── Rems_Dl.spec            # PyInstaller build spec (Windows .exe / Linux binary)
+├── Rems_Dl.desktop         # Linux desktop launcher (uses icon/icon.png)
+├── Dockerfile              # Headless server image (REMS_HEADLESS=1)
+├── requirements.txt        # Desktop dependencies
+├── requirements.docker.txt # Server-only dependencies (no pywebview)
+├── .env.example            # Example config (copy to .env)
+├── .github/workflows/release.yml # Release automation (exe + binary + Docker)
+├── core/
+│   ├── shared.py           # Tag engine, gallery store, BaseDownloader async pipeline
+│   ├── database.py         # JSON database manager (history, favorites, UI config)
+│   ├── gallery_dl_interop.py # Runtime gallery-dl page-html enablement (source runs)
+│   └── check_imports.py    # Import sanity checker
+├── workers/                # Source-specific download modules
+├── web/
+│   ├── index.html          # Main UI (tabs, forms, archives, settings)
+│   ├── script.js           # Frontend logic (Socket.IO + fetch API)
+│   ├── style.css           # Glass-morphism dark/light themes
+│   ├── icon.png            # Favicon
+│   ├── Fonts/              # Offline fonts
+│   └── wallpaper/          # Per-tab dark/light backgrounds
+├── icon/
+│   ├── icon.ico            # Windows executable icon
+│   └── icon.png            # Linux launcher icon (512×512)
+└── database/               # Offline tag databases for autocomplete (*_tag_names.json, ...)
 ```
 
 ## Supported Platforms
@@ -157,6 +177,90 @@ Rem God Catcher/
 | **Nekos.life** | Category-based with type indicators (GIF/Static/Mixed) | Yes | Animated neko, hug, pat, cuddle, and more |
 | **Yande.re** | Full tag search, rating filter, artist extraction, local tag DB | Yes | Moebooru API, images only, sorts into Safe/Moderate/NSFW folders |
 | **Konachan** | Full tag search, rating filter, artist extraction, local tag DB, video/GIF format filtering | Yes | Moebooru API, sorts into Safe/Moderate/Explicit folders |
+| **Sankaku** | Full tag search, rating filter, artist extraction, offline tag DB | Yes | Login via Settings unlocks higher limits |
+| **Gsbooru** | Full search, rating filter, tag caching, categorized tags | Yes | Gelbooru-compatible API, fast offline autocomplete |
+| **AnimePictures** | Tag search with TLS impersonation (`curl_cffi`) | Mixed | Bypasses Cloudflare 403 blocks |
+| **e-shuushuu** | Tag search with local tag DB | Mixed | Fast offline autocomplete |
+| **NekosAPI** | Tag search with rating filter, local tag DB | Mixed | Sorts into Safe/Sensitive/Questionable/NSFW folders |
+| **Nekosia** | Tag search with rating filter, local tag DB | Mixed | Sorts into rating subdirectories |
+| **Pixiv** | Tag search, ugoira-to-GIF conversion | Mixed | Requires Pixiv refresh token in Settings |
+| **Pinterest** | Search + board download, resolution filter | No | Email/password or cookies file |
+
+---
+
+## 🐧 Run on Linux / Docker
+
+Two options: a **native Linux binary** (desktop app) or a **zero-setup Docker image** (headless server, nothing to install on the host -- no Python, no WebKitGTK, no browser profile).
+
+### Option A -- Docker (no host dependencies)
+
+Pull the published image (or build it yourself with `docker build -t rems-dl .`):
+
+```bash
+docker pull ghcr.io/remlover-dev/rems-dl:latest
+docker run -d -p 5000:5000 \
+  -v "$(pwd)/Rems Dl:/app/Rems Dl" \
+  -v "$(pwd)/database:/app/database" \
+  --name rems-dl-app ghcr.io/remlover-dev/rems-dl:latest
+```
+
+(The volume mounts keep your downloads and tag databases outside the container so they survive rebuilds.)
+
+Then open `http://localhost:5000` in your browser. The image runs with `REMS_HEADLESS=1`: it serves on `0.0.0.0:$PORT` and stays alive across tab connects/disconnects.
+
+### Option B -- Native Linux desktop app
+
+Download `Rems_Dl-Linux.tar.gz` from [GitHub Releases](../../releases), or run from source:
+
+```bash
+pip install -r requirements.txt
+python Rems_Dl.py
+```
+A native desktop window opens via `pywebview` (needs WebKitGTK on most distros, e.g. `sudo apt install python3-gi gir1.2-webkit2-4.1`). Without it, the UI opens in your browser at a `http://127.0.0.1:<port>` loopback address.
+
+### Linux desktop launcher
+`Rems_Dl.desktop` registers the app in your application menu using `icon/icon.png` (512×512):
+```bash
+sudo cp -r . /opt/rems-dl
+cp Rems_Dl.desktop ~/.local/share/applications/
+update-desktop-database ~/.local/share/applications/
+```
+
+### Build a Linux binary on WSL
+From Windows, open your distro (`wsl -d Ubuntu`), mount this folder, and build with PyInstaller -- full steps are in [Build from Source](#-build-from-source-exe--binary) below.
+
+---
+
+## 🪟 Build from Source (EXE / Binary)
+
+### Windows `.exe` (one command)
+```bash
+pip install -r requirements.txt
+pip install pyinstaller
+pyinstaller Rems_Dl.spec
+xcopy database dist\Rems_Dl\database\*.json
+```
+The ready-to-run build lands in `dist/Rems_Dl/Rems_Dl.exe` (onedir), with `icon/icon.ico` baked in as the executable icon. Zip the `dist/Rems_Dl` folder and share it -- no Python needed on the target PC.
+
+> The spec bundles `web/` (UI + favicon) and `icon/`. The `database/*.json` tag DBs (~170 MB) are copied next to the exe by the `xcopy` step so offline autocomplete works. Your `Rems Dl/` downloads and `.env` are created next to the exe on first run. Zerochan's gallery-dl integration needs no manual patching: source runs enable `page-html` on your own installed gallery-dl copy automatically (`core/gallery_dl_interop.py`), and frozen builds use the built-in API engine.
+
+### Linux binary (via WSL)
+PyInstaller is not cross-platform -- a Linux binary must be built **on Linux**. From Windows, use WSL:
+```bash
+wsl -d Ubuntu
+cd /mnt/e/Rems\ Dl            # mount of this project folder (adjust the path)
+pip install -r requirements.txt
+pip install pyinstaller
+sudo apt install python3-gi gir1.2-webkit2-4.1   # for the pywebview desktop window (optional)
+pyinstaller Rems_Dl.spec --noconfirm
+cp database/*.json dist/Rems_Dl/database/
+```
+The Linux build lands in `dist/Rems_Dl/Rems_Dl` (no `.exe` extension). Notes:
+- Build **inside WSL**, never on Windows, when the target is Linux.
+- On a headless server, skip `pywebview` -- run with `REMS_HEADLESS=1` (or `--headless`) so the app serves on `0.0.0.0:$PORT` instead of opening a window.
+- For servers/containers, the Docker image (see above) is usually simpler than a binary.
+
+> You don't need to build by hand for every release: pushing a `v*` tag runs [`.github/workflows/release.yml`](.github/workflows/release.yml), which builds the Windows `.exe`, the Linux binary, and the Docker image, then attaches the archives to the GitHub Release and pushes the image to GHCR.
 
 ---
 
@@ -168,4 +272,4 @@ This software is provided for **educational and archiving purposes only**. Some 
 
 ## License
 
-[MIT License](LICENSE)
+[MIT License](LICENSE) for our own code, with third-party notices in the same file: `workers/pixiv.py` is GPL-2.0-only (adapted from gallery-dl, which itself stays an external, never-bundled tool), and the `rule34Py` dependency is GPL-3.0-only. See [LICENSE](LICENSE) for details.

@@ -1,16 +1,16 @@
-<div dir="rtl" align="center">
+<div align="center">
 
-# Rem God Catcher 5.0
+# Rems Dl 5.1
 
-**ابزار عظیم و چندنخی (Multi-threaded) برای دانلود تصاویر انیمه با رابط کاربری شیشه‌ای وب**
+**ابزار عظیم و چندنخی (Multi-threaded) برای دانلود تصاویر و مدیا با رابط کاربری شیشه‌ای وب**
 
-پشتیبانی کامل از Rule34, Safebooru, Gelbooru, Zerochan, Waifu.im, Nekos.best, Nekos.life, Yande.re, Konachan, Danbooru, e-shuushuu, NekosAPI, Nekosia و Pinterest.
+پشتیبانی کامل از Rule34، Safebooru، Gelbooru، Gsbooru، Zerochan، Waifu.im، Nekos.best، Nekos.life، Yande.re، Konachan، Danbooru، Sankaku، e-shuushuu، NekosAPI، Nekosia، AnimePictures، Pixiv و Pinterest.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://python.org)
-[![Version](https://img.shields.io/badge/Version-5.0.0-ff9ff3.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-5.1.0-ff9ff3.svg)](CHANGELOG.md)
 
-[English](README.md) | [فارسی](README_fa.md)
+[English](README.md) | [فارسی](README_fa.md) | [لینوکس و داکر](#linux-docker)
 
 </div>
 
@@ -18,11 +18,63 @@
 
 <div dir="rtl">
 
+## ✨ قابلیت‌های جدید در نسخه 5.1 (Rem 5.1)
+- **پشتیبانی از Pixiv:** ورکر کاملاً جدید (مبتنی بر gallery-dl) با تبدیل ugoira به GIF.
+- **بازطراحی Gsbooru:** کش تگ (`database/gsbooru_tag_names.json`) و استخراج تگ دسته‌بندی‌شده برای پیشنهاد خودکار فوق‌سریع.
+- **سیستم یکپارچه امتیاز (Rating):** همه ورکرها حالا تگ امتیاز (`rating:g/s/q/e`) اضافه می‌کنند؛ پوشه‌بندی و فیلتر گالری بر اساس امتیاز همه‌جا فعال است.
+- **موتور تگ Zerochan:** شمارش صفحه‌به‌صفحه با پارسر کامل HTML برای تگ‌های دسته‌بندی‌شده (هنرمند/کاراکتر/کپی‌رایت/متا/تگ).
+- **تغییر نام پروژه به Rems Dl:** فایل اجرایی حالا `Rems_Dl.py` است؛ پوشه قدیمی `Rem God` در اولین اجرا خودکار به `Rems Dl` منتقل می‌شود.
+- **پنجره مستقل دسکتاپ:** اجرا با `pywebview` -- دیگر نیازی به باز کردن دستی مرورگر در ویندوز و لینوکس نیست.
+
 ## ✨ قابلیت‌های جدید در نسخه 5.0
 - **پیشنهاد تگ فوق‌حرفه‌ای:** منوی سرچ و پیشنهاد تگ‌ها برای تمام ورکرها به صورت شناور و گرافیکی آپدیت شد.
 - **گالری هوشمند و جذاب:** دکمه "Focus Mode" برای مخفی کردن کامل UI و دیدن عکس، رفتن خودکار به عکس بعدی هنگام حذف.
 - **سایت‌های جدید:** اضافه شدن e-shuushuu، Nekosia و NekosAPI با دیتابیس لوکال آفلاین.
 - **جادوی ضدبن:** استفاده از تکنولوژی `curl_cffi` برای جعل کامل مرورگر و عبور از فیلترهای قدرتمند AnimePictures.
+
+---
+
+## شروع سریع
+
+### ۱. کلون مخزن
+
+```bash
+git clone https://github.com/RemLover-Dev/Rems-Dl
+cd Rems-Dl
+```
+
+### ۲. نصب وابستگی‌ها
+
+تمامی پکیج‌های مورد نیاز را به راحتی از طریق فایل `requirements.txt` نصب کنید:
+
+```bash
+pip install -r requirements.txt
+```
+
+### ۳. تنظیمات (اختیاری)
+
+فایل `.env` را ویرایش کنید یا از تب **Options** در رابط وب استفاده کنید:
+
+```env
+RULE34_API_KEY=your_api_key_here
+RULE34_USER_ID=your_user_id_here
+USE_PROXY=false
+PROXY_URL=http://127.0.0.1:10808
+VERIFY_TLS=false
+API_TIMEOUT=10
+RETRY_WAIT=5
+ANTI_BAN_PAUSE=3.0
+```
+
+### ۴. اجرا
+
+```bash
+python Rems_Dl.py
+```
+
+پنجره مستقل دسکتاپ به صورت خودکار باز می‌شود (یا رابط وب در `http://127.0.0.1:5000` اگر `pywebview` نصب نباشد).
+
+> **آپدیت از نسخه 5.0؟** پوشه قدیمی `Rem God` در اولین اجرا خودکار به `Rems Dl` تغییر نام می‌دهد. هیچ کار دستی لازم نیست.
 
 ---
 
@@ -34,7 +86,7 @@
 * در سایت [Rule34.xxx](https://rule34.xxx) لاگین کنید.
 * به مسیر **My Account** -> **Settings** بروید.
 * در بخش **API Key** روی **Generate** کلیک کرده و کلید را کپی کنید.
-* روی نام کاربری خود در سایت کلیک کنید تا پروفایل باز شود. در آدرس مروگر (URL) عددی مقابل `id=` نوشته شده است. این عدد همان **User ID** شماست.
+* روی نام کاربری خود در سایت کلیک کنید تا پروفایل باز شود. در آدرس مرورگر (URL) عددی مقابل `id=` نوشته شده است. این عدد همان **User ID** شماست.
 
 **۲. سایت Gelbooru**
 * در [Gelbooru.com](https://gelbooru.com) لاگین کنید.
@@ -54,108 +106,51 @@
 
 ---
 
-## شروع سریع
-
-1. مخزن را دانلود کنید: `git clone https://github.com/RemLover-Dev/RemGodCatcher.git`
-2. پیش‌نیازها را نصب کنید: `pip install -r requirements.txt`
-3. برنامه را اجرا کنید: `python Rem_catcher.py`
-4. رابط کاربری به صورت خودکار در `http://127.0.0.1:5000` باز می‌شود.
-
----
-## مجوز
-[MIT License](LICENSE)
-
-</div>
-
-# Rem God Catcher
-
-**ابزار مدرن دانلود تصویر و ویدیو با رابط کاربری شیشه‌ای وب**
-
-پشتیبانی از Rule34، Safebooru، Gelbooru، Zerochan، Waifu.im، Nekos.best و Nekos.life با لاگ بلادرنگ، موتور کشف تگ، فیلتر پیشرفته و محافظت ضدبن.
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://python.org)
-[![Flask](https://img.shields.io/badge/Flask-3.x-green.svg)](https://flask.palletsprojects.com)
-[![Version](https://img.shields.io/badge/Version-4.0.0-ff9ff3.svg)](CHANGELOG.md)
-
-[English](README.md) | [فارسی](README_fa.md)
-
-</div>
-
----
-
-<div dir="rtl">
-
 ## امکانات
 
-- **چندپلتفرمه** -- ماژول‌های داخلی برای ۸ بوئورد تصویر
-- **وب رابط مدرن** -- تم شیشه‌ای تاریک و روشن، در مرورگر پیش‌فرض باز میشه
-- **موتور کشف و بایگانی** -- استخراج زنده تگ‌ها و نام هنرمندان از مدیای دانلود شده، نمایش داده شده در تب بایگانی تصاویر
-- **علاقه‌مندی‌ها و تاریخچه جستجو** -- تگ‌ها رو به لیست علاقه‌مندی اضافه کن برای جستجوی یک‌کلیکی و تاریخچه جستجو رو حفظ کن
+- **چندپلتفرمه** -- ماژول داخلی برای ۱۸ سورس (از جمله Danbooru، Sankaku، Pixiv و Gsbooru)
+- **وب رابط مدرن** -- تم شیشه‌ای تاریک و روشن، در پنجره مستقل دسکتاپ یا مرورگر پیش‌فرض باز می‌شود
+- **موتور کشف و بایگانی** -- استخراج زنده تگ‌ها و نام هنرمندان از مدیای دانلود شده، نمایش در تب بایگانی تصاویر
+- **علاقه‌مندی‌ها و تاریخچه جستجو** -- تگ‌ها را به لیست علاقه‌مندی اضافه کن برای جستجوی یک‌کلیکی و تاریخچه جستجو را حفظ کن
 - **پشتیبانی ویدیو و GIF** -- فیلتر اختصاصی برای دانلود فرمت‌های `.mp4`، `.webm` و GIF
-- **فیلتر فقط GIF** -- Rule34 از حالت فقط GIF به همراه Images/Videos/All پشتیبانی میکنه
-- **لاگ بلادرنگ** -- خروجی کنسول زنده از طریق WebSocket (Socket.IO)
-- **جستجوی پیشرفته** -- کوئری تگ AND/OR، حذف تگ (`-video`, `-image`)، سورت سفارشی، مرور دسته‌بندی
+- **فیلتر فقط GIF** -- حالت فقط GIF در کنار Images/Videos/All
+- **لاگ بلادرنگ** -- خروجی کنسول زنده از طریق WebSocket (Socket.IO) با دکمه پاک‌سازی هر تب
+- **شخصی‌سازی کامل UI** -- رنگ دلخواه متن، اکسنت، دکمه‌ها و پس‌زمینه تب‌ها؛ والپیپر جداگانه هر تب برای حالت تاریک/روشن
+- **جستجوی پیشرفته** -- کوئری تگ AND/OR، حذف تگ (`-video`، `-image`)، سورت سفارشی، مرور دسته‌بندی
 - **موتور ضدبن** -- وقفه‌های تاکتیکی، حلقه تلاش مجدد، مدیریت محدودیت API
-- **پشتیبانی پروکسی** -- تنظیمات کامل پروکسی از رابط کاربری (v2rayN, Clash و غیره)
-- **مدیریت کلید API** -- مدیریت اعتبارنامه Rule34 مستقیماً از رابط وب
-- **پیشنهاد خودکار تگ** -- autocomplete زنده برای همه پلتفرم‌ها
-- **ذخیره تنظیمات** -- پروکسی، کلیدها و تنظیمات دانلود در فایل `.env` ذخیره میشن
-
----
-
-## شروع سریع
-
-### ۱. کلون مخزن
-
-```bash
-git clone https://github.com/RemLover-Dev/RemGodCatcher.git
-cd RemGodCatcher
-```
-
-### ۲. نصب وابستگی‌ها
-
-```bash
-pip install flask flask-socketio requests urllib3 python-dotenv rule34Py
-```
-
-### ۳. تنظیمات (اختیاری)
-
-فایل `.env` رو ویرایش کن یا از تب **Options** در رابط وب استفاده کن:
-
-```env
-RULE34_API_KEY=کلید_api_خود_را_اینجا_بگذارید
-RULE34_USER_ID=شناسه_کاربری_خود_را_اینجا_بگذارید
-USE_PROXY=false
-PROXY_URL=http://127.0.0.1:10808
-VERIFY_TLS=false
-API_TIMEOUT=10
-RETRY_WAIT=5
-ANTI_BAN_PAUSE=3.0
-```
-
-### ۴. اجرا
-
-```bash
-python Rem_catcher.py
-```
-
-رابط وب خودکار در `http://127.0.0.1:5000` باز میشه.
+- **پشتیبانی پروکسی** -- تنظیمات کامل پروکسی از رابط کاربری (v2rayN، Clash و غیره)
+- **مدیریت کلید API** -- مدیریت اعتبارنامه‌ها مستقیماً از رابط وب
+- **پیشنهاد خودکار تگ** -- autocomplete زنده برای همه پلتفرم‌ها با دیتابیس آفلاین
+- **فایل‌های جانبی Hydrus** -- ساخت خودکار فایل `.filename.txt` با تگ و هنرمند برای ایمپورت در Hydrus Network
+- **ذخیره تنظیمات** -- پروکسی، کلیدها و تنظیمات دانلود در فایل `.env` ذخیره می‌شوند
 
 ---
 
 ## ساختار پروژه
 
 ```
-Rem God Catcher/
-├── Rem_catcher.py          # هسته پایتون (Flask + Socket.IO)
-├── shared.py               # ابزارهای مشترک، مدیریت تگ و پل ارتباطی لاگ
+Rems Dl/
+├── Rems_Dl.py            # هسته پایتون (Flask + Socket.IO + پنجره pywebview)
+├── Rems_Dl.spec          # فایل بیلد PyInstaller (خروجی exe ویندوز)
+├── Rems_Dl.desktop       # لانچر دسکتاپ لینوکس (با icon/icon.png)
+├── core/
+│   ├── shared.py         # ابزارهای مشترک، مدیریت تگ، موتور BaseDownloader و لاگ
+│   ├── database.py       # مدیریت متمرکز دیتابیس‌های JSON
+│   └── check_imports.py  # بررسی سلامت ایمپورت‌ها
 ├── workers/                # ماژول‌های دانلود اختصاصی هر API
+├── icon/
+│   ├── icon.ico          # آیکون ویندوز (exe و نصب‌کننده)
+│   └── icon.png          # آیکون لینوکس (لانچر دسکتاپ، 512×512)
 ├── tags.json               # دیتابیس تگ‌های Waifu.im (نام → اسلاگ)
-├── safe_tag_names.json     # دیتابیس آفلاین تگ‌های Safebooru
-├── tag_history.json        # دیتابیس تاریخچه جستجو (git-ignored)
-├── fav_tags.json           # دیتابیس علاقه‌مندی‌ها (git-ignored)
-├── image_history.json      # بایگانی تگ تصاویر (git-ignored)
+├── database/               # دیتابیس تگ‌ها و داده کاربر
+│   ├── dan_tag_names.json      # دیتابیس آفلاین تگ‌های Danbooru
+│   ├── safe_tag_names.json     # دیتابیس آفلاین تگ‌های Safebooru
+│   ├── yande_tag_names.json    # دیتابیس آفلاین تگ‌های Yande.re
+│   ├── kona_tag_names.json     # دیتابیس آفلاین تگ‌های Konachan (بیش از 82 هزار تگ)
+│   ├── tag_history.json        # دیتابیس تاریخچه جستجو (git-ignored)
+│   ├── fav_tags.json           # دیتابیس علاقه‌مندی‌ها (git-ignored)
+│   ├── image_history.json      # بایگانی تگ تصاویر (git-ignored)
+│   └── ui_config.json          # تنظیمات تم و والپیپر (git-ignored)
 ├── .env                    # کلیدهای API و تنظیمات پروکسی (git-ignored)
 ├── .gitignore
 ├── LICENSE
@@ -164,10 +159,11 @@ Rem God Catcher/
 ├── CHANGELOG.md
 └── web/
     ├── index.html           # HTML اصلی (تب‌ها، فرم‌ها، بایگانی، تنظیمات)
+    ├── icon.png             # فاوآیکون مرورگر (کپی icon/icon.png)
     ├── script.js            # منطق فرانت‌اند (Socket.IO + fetch API)
-    ├── style.css            # تم تاریک شیشه‌ای (فونت Inter)
+    ├── style.css            # تم شیشه‌ای (فونت Inter)
     ├── Fonts/               # فونت‌های آفلاین
-    └── wallpaper/           # تصاویر پس‌زمینه هر تب
+    └── wallpaper/           # تصاویر پس‌زمینه هر تب (حالت تاریک/روشن)
 ```
 
 ---
@@ -176,14 +172,97 @@ Rem God Catcher/
 
 | پلتفرم | تگ‌ها | NSFW | توضیحات |
 |---------|-------|------|---------|
-| **Rule34** | جستجوی کامل با AND/OR، حذف، سورت، پشتیبانی فرمت ویدیو | بله | نیاز به کلید API برای بهترین نتیجه |
-| **Safebooru** | جستجوی استاندارد تگ، پشتیبانی فرمت ویدیو، استخراج هنرمند | خیر | ممکنه به پروکسی نیاز داشته باشه (Cloudflare) |
-| **Gelbooru** | جستجوی کامل، فیلتر فرمت، پشتیبانی ویدیو | بله | نیاز به کلید API برای بهترین نتیجه |
-| **Zerochan** | جستجوی تگ با پیشنهادات زنده | خیر | تلاش مجدد و محدودیت نرخ داخلی |
-| **Waifu.im** | تبدیل نام به اسلاگ، فیلتر NSFW | بله | از `tags.json` محلی برای پیشنهادات استفاده میکنه |
+| **Rule34** | جستجوی کامل با AND/OR، حذف، سورت، پشتیبانی فرمت ویدیو | بله | برای بهترین نتیجه به کلید API نیاز دارد |
+| **Safebooru** | جستجوی استاندارد تگ، پشتیبانی فرمت ویدیو، استخراج هنرمند | خیر | ممکن است به پروکسی نیاز داشته باشد (Cloudflare) |
+| **Gelbooru** | جستجوی کامل، فیلتر فرمت، پشتیبانی ویدیو/GIF، استخراج هنرمند | بله | سیستم امتیازدهی مثل Danbooru |
+| **Danbooru** | جستجوی کامل تگ، فیلتر امتیاز، استخراج هنرمند، دیتابیس آفلاین، جداسازی ویدیو/عکس | بله | مرتب‌سازی در پوشه‌های Safe/Sensitive/Questionable/NSFW |
+| **Zerochan** | جستجوی تگ با پیشنهادات زنده و لاگین | خیر | تلاش مجدد و محدودیت نرخ داخلی |
+| **Waifu.im** | تبدیل نام به اسلاگ، فیلتر NSFW | بله | از `tags.json` محلی برای پیشنهادات استفاده می‌کند |
 | **Nekos.best** | دسته‌بندی (PNG / GIF) | خیر | پشتیبانی چند فرمت |
-| **Nekos.life** | دسته‌بندی با نشانگر نوع (GIF/Static/Mixed) | بله | نکو متحرک، هق‌هق، بغل، ناز و غیره |
-| **Yande.re** | جستجوی کامل تگ، فیلتر رتبه‌بندی، استخراج هنرمند، دیتابیس تگ محلی | بله | API موبور، فقط تصاویر، سورت به پوشه‌های Safe/Moderate/NSFW |
+| **Nekos.life** | دسته‌بندی با نشانگر نوع (GIF/Static/Mixed) | بله | نکو متحرک، بغل، ناز و غیره |
+| **Yande.re** | جستجوی کامل تگ، فیلتر امتیاز، استخراج هنرمند، دیتابیس محلی | بله | API موبور، فقط تصاویر، مرتب‌سازی در پوشه‌های Safe/Moderate/NSFW |
+| **Konachan** | جستجوی کامل تگ، فیلتر امتیاز، استخراج هنرمند، دیتابیس محلی، فیلتر ویدیو/GIF | بله | API موبور، مرتب‌سازی در پوشه‌های Safe/Moderate/Explicit |
+| **Sankaku** | جستجوی کامل تگ، فیلتر امتیاز، استخراج هنرمند، دیتابیس آفلاین | بله | با لاگین در تنظیمات محدودیت‌ها بیشتر باز می‌شود |
+| **Gsbooru** | جستجوی کامل، فیلتر امتیاز، کش تگ، تگ دسته‌بندی‌شده | بله | API سازگار با Gelbooru، پیشنهاد خودکار آفلاین سریع |
+| **AnimePictures** | جستجوی تگ با جعل TLS (`curl_cffi`) | ترکیبی | عبور از بلاک 403 کلادفلر |
+| **e-shuushuu** | جستجوی تگ با دیتابیس محلی | ترکیبی | پیشنهاد خودکار آفلاین سریع |
+| **NekosAPI** | جستجوی تگ با فیلتر امتیاز و دیتابیس محلی | ترکیبی | مرتب‌سازی در پوشه‌های Safe/Sensitive/Questionable/NSFW |
+| **Nekosia** | جستجوی تگ با فیلتر امتیاز و دیتابیس محلی | ترکیبی | مرتب‌سازی در زیرپوشه‌های امتیاز |
+| **Pixiv** | جستجوی تگ، تبدیل ugoira به GIF | ترکیبی | نیاز به refresh token در تنظیمات |
+| **Pinterest** | جستجو + دانلود بورد، فیلتر رزولوشن | خیر | ایمیل/پسورد یا فایل کوکی |
+
+---
+
+<a id="linux-docker"></a>
+## 🐧 اجرا در لینوکس / داکر
+
+بدون نیاز به نصب پایتون روی سیستم -- برنامه به صورت ایمیج داکر عرضه می‌شود (راهنمای کامل در همین فایل، بخش [لینوکس و داکر](#linux-docker)).
+
+### پیش‌نیازها
+- نصب بودن **Docker** روی سیستم.
+
+### راه‌اندازی و اجرا
+۱. ساخت ایمیج داکر:
+```bash
+docker build -t rems-dl .
+```
+۲. اجرای کانتینر:
+```bash
+docker run -d -p 5000:5000 -v $(pwd)/Rems\ Dl:/app/Rems\ Dl -v $(pwd)/database:/app/database --name rems-dl-app rems-dl
+```
+(با volume mount دانلودها و دیتابیس تگ بیرون کانتینر می‌مانند تا با rebuild پاک نشوند.)
+
+۳. مرورگر را باز کنید و به `http://localhost:5000` بروید.
+
+### اجرای نیتیو لینوکس (بدون داکر)
+```bash
+pip install -r requirements.txt
+python Rems_Dl.py
+```
+پنجره مستقل دسکتاپ با `pywebview` باز می‌شود (در اکثر توزیع‌ها به WebKitGTK نیاز دارد، مثلاً `sudo apt install python3-gi gir1.2-webkit2-4.1`). اگر نباشد، رابط وب در مرورگر با آدرس `http://127.0.0.1:5000` باز می‌شود.
+
+### لانچر دسکتاپ لینوکس
+فایل `Rems_Dl.desktop` برنامه را با آیکون `icon/icon.png` (بزرگ‌نمایی 512×512) در منوی اپلیکیشن ثبت می‌کند:
+```bash
+sudo cp -r . /opt/rems-dl
+cp Rems_Dl.desktop ~/.local/share/applications/
+update-desktop-database ~/.local/share/applications/
+```
+
+### ساخت باینری لینوکس با WSL
+از داخل ویندوز، توزیع لینوکسی را باز کنید (`wsl -d Ubuntu`)، این پوشه را mount کنید و با PyInstaller بیلد بگیرید -- مراحل کامل در بخش [ساخت از سورس](#build-source) آمده است.
+
+---
+
+<a id="build-source"></a>
+## 🪟 ساخت از سورس (EXE / باینری)
+
+### فایل `.exe` ویندوز (تک‌دستوری)
+```bash
+pip install -r requirements.txt
+pip install pyinstaller
+pyinstaller Rems_Dl.spec
+xcopy database dist\Rems_Dl\database\*.json
+```
+خروجی آماده در `dist/Rems_Dl/Rems_Dl.exe` قرار می‌گیرد و آیکون `icon/icon.ico` داخل فایل اجرایی حک شده است. پوشه `dist/Rems_Dl` را زیپ و منتشر کنید -- روی سیستم مقصد نیازی به پایتون نیست.
+
+> فایل spec پوشه‌های `web/` (رابط + فاوآیکون)، `icon/` و `gallery_dl_patch/` را داخل بیلد می‌برد. دیتابیس‌های تگ `database/*.json` (حدود ۱۷۰ مگابایت) با دستور `xcopy` کنار exe کپی می‌شوند تا پیشنهاد خودکار آفلاین کار کند. پوشه دانلود `Rems Dl/` و فایل `.env` در اولین اجرا کنار exe ساخته می‌شوند.
+
+### باینری لینوکس (با WSL)
+PyInstaller کراس‌پلتفرم نیست -- باینری لینوکس حتماً باید **روی لینوکس** ساخته شود. از داخل ویندوز با WSL:
+```bash
+wsl -d Ubuntu
+cd /mnt/e/Rems\ Dl            # مسیر mount همین پوشه پروژه (در صورت نیاز اصلاح کن)
+pip install -r requirements.txt
+pip install pyinstaller
+sudo apt install python3-gi gir1.2-webkit2-4.1   # برای پنجره دسکتاپ pywebview (اختیاری)
+pyinstaller Rems_Dl.spec --noconfirm
+cp database/*.json dist/Rems_Dl/database/
+```
+خروجی لینوکس در `dist/Rems_Dl/Rems_Dl` ساخته می‌شود (بدون پسوند `.exe`). نکته‌ها:
+- وقتی هدف لینوکس است، بیلد را **داخل WSL** بگیر، نه روی ویندوز.
+- روی سرور بدون مانیتور، `pywebview` را نصب نکن -- برنامه خودکار به حالت مرورگر می‌رود (`http://127.0.0.1:5000`، یا پشت داکر).
+- برای سرور/کانتینر معمولاً ایمیج داکر (بخش بالا) از باینری ساده‌تر است.
 
 ---
 
@@ -191,11 +270,11 @@ Rem God Catcher/
 
 1. در [rule34.xxx](https://rule34.xxx) ثبت‌نام کن
 2. به **My Account** -> **Settings** برو
-3. بخش **API Key** رو پیدا کن -> **Generate API Key** رو بزن
-4. **شناسه کاربری (User ID)** رو از آدرس پروفایل کپی کن
-5. هر دو رو در تب **Options** رابط وب وارد کن
+3. بخش **API Key** را پیدا کن -> **Generate API Key** را بزن
+4. **شناسه کاربری (User ID)** را از آدرس پروفایل کپی کن
+5. هر دو را در تب **Options** رابط وب وارد کن
 
-> هرگز کلیدهای API خود رو عمومی نکن.
+> هرگز کلیدهای API خود را عمومی نکن.
 
 ---
 
@@ -203,22 +282,22 @@ Rem God Catcher/
 
 1. در [gelbooru.com](https://gelbooru.com) ثبت‌نام کن
 2. به **My Account** -> **Options** برو
-3. در بخش **Miscellaneous Options**، **API Key** رو پیدا کن و **Generate API Key** رو بزن
-4. **شناسه کاربری (User ID)** رو از آدرس پروفایل کپی کن (مثلاً `gelbooru.com/index.php?page=account&s=options&uid=YOUR_USER_ID`)
-5. هر دو رو در تب **Options** رابط وب وارد کن یا به فایل `.env` اضافه کن:
+3. در بخش **Miscellaneous Options**، **API Key** را پیدا کن و **Generate API Key** را بزن
+4. **شناسه کاربری (User ID)** را از آدرس پروفایل کپی کن (مثلاً `gelbooru.com/index.php?page=account&s=options&uid=YOUR_USER_ID`)
+5. هر دو را در تب **Options** رابط وب وارد کن یا به فایل `.env` اضافه کن:
 
 ```env
 GELBOORU_API_KEY=your_api_key_here
 GELBOORU_USER_ID=your_user_id_here
 ```
 
-> بدون کلید API، گلوبوری حداکثر 100 پست در هر صفحه نشون میده. با کلید API به همه نتایج و کوئری‌های سریع‌تر دسترسی داری.
+> بدون کلید API، گلوبوری حداکثر 100 پست در هر صفحه نشان می‌دهد. با کلید API به همه نتایج و کوئری‌های سریع‌تر دسترسی داری.
 
 ---
 
 ## سلب مسئولیت
 
-این نرم‌افزار صرفاً برای **اهداف آموزشی و بایگانی** ارائه شده است. برخی از APIهای پشتیبانی شده شامل محتوای NSFW هستند -- کاربران باید در حوزه قضایی خود بزرگسال باشند. لطفاً از محدودیت نرخ APIها احترام بگذارید و درخواست‌های پرتکرار ارسال نکنید.
+این نرم‌افزار صرفاً برای **اهداف آموزشی و بایگانی** ارائه شده است. برخی از APIهای پشتیبانی شده شامل محتوای NSFW هستند -- کاربران باید در حوزه قضایی خود بزرگسال باشند. لطفاً به محدودیت نرخ APIها احترام بگذارید و درخواست‌های پرتکرار ارسال نکنید.
 
 ---
 
