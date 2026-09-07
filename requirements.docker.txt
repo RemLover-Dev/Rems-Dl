@@ -1,0 +1,14 @@
+# Server-only dependencies for the Docker image (headless mode).
+# Same as requirements.txt minus pywebview: containers have no display, so
+# the app runs with REMS_HEADLESS=1 and serves the UI over HTTP instead of
+# opening a native window. (opencv/gunicorn are intentionally absent: no
+# code in this repo uses them.)
+flask
+flask-socketio
+requests
+python-dotenv
+pillow
+aiohttp
+curl_cffi
+rule34Py
+gallery-dl

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Rems Dl
+Comment=Multi-threaded image & media scraper with glass-morphism web UI
+Exec=python3 /opt/rems-dl/Rems_Dl.py
+Path=/opt/rems-dl
+Icon=/opt/rems-dl/icon/icon.png
+Terminal=false
+Categories=Graphics;Network;
+StartupWMClass=Rems Dl
