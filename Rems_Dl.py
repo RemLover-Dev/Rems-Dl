@@ -1,6 +1,19 @@
+#!/usr/bin/env python3
+
+try:
+    # ponytail: must run before GTK initializes (i.e. before import webview)
+    import gi
+    gi.require_version('GLib', '2.0')
+    from gi.repository import GLib
+    GLib.set_prgname('Rems_Dl')  # must match Icon= / desktop file id
+except Exception:
+    pass
+
 import os
 import sys
 import time
+import bisect
+import html
 import threading
 import requests
 import urllib3
@@ -26,10 +39,27 @@ else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     STATIC_FOLDER = "web"
 
+APP_NAME = "Rems Dl"
+DOWNLOAD_DIR_NAME = "Rems Dl"
+LEGACY_DOWNLOAD_DIR_NAME = "Rem God"
+MASTER_FOLDER = os.path.join(BASE_DIR, DOWNLOAD_DIR_NAME)
+# Auto-migrate legacy "Rem God" download folder to "Rems Dl" (one-time, safe).
+if os.path.isdir(os.path.join(BASE_DIR, LEGACY_DOWNLOAD_DIR_NAME)) and not os.path.isdir(MASTER_FOLDER):
+    try:
+        os.rename(os.path.join(BASE_DIR, LEGACY_DOWNLOAD_DIR_NAME), MASTER_FOLDER)
+        print(f"Migrated legacy '{LEGACY_DOWNLOAD_DIR_NAME}' folder to '{DOWNLOAD_DIR_NAME}'.")
+    except Exception as e:
+        print(f"Folder migration warning: {e}")
+
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
+# ponytail: a dead system proxy must never blackhole the local UI server
+for _k in ("no_proxy", "NO_PROXY"):
+    _have = {h.strip() for h in os.environ.get(_k, "").split(",") if h.strip()}
+    if not {"127.0.0.1", "localhost"}.issubset(_have):
+        os.environ[_k] = ",".join(sorted(_have | {"127.0.0.1", "localhost"}))
+
 import core.shared as shared
-# import core.check_imports
 from workers.rule34 import worker_rule34
 from workers.safebooru import worker_safebooru
 from workers.zerochan import worker_zerochan
@@ -46,18 +76,6 @@ from workers.anime_dl import worker_anime_dl
 from workers.pinterest_worker import worker_pinterest
 from workers.pixiv import worker_pixiv
 
-APP_NAME = "Rems Dl"
-DOWNLOAD_DIR_NAME = "Rems Dl"
-LEGACY_DOWNLOAD_DIR_NAME = "Rem God"
-
-MASTER_FOLDER = os.path.join(BASE_DIR, DOWNLOAD_DIR_NAME)
-# Auto-migrate legacy "Rem God" download folder to "Rems Dl" (one-time, safe).
-if os.path.isdir(os.path.join(BASE_DIR, LEGACY_DOWNLOAD_DIR_NAME)) and not os.path.isdir(MASTER_FOLDER):
-    try:
-        os.rename(os.path.join(BASE_DIR, LEGACY_DOWNLOAD_DIR_NAME), MASTER_FOLDER)
-        print(f"Migrated legacy '{LEGACY_DOWNLOAD_DIR_NAME}' folder to '{DOWNLOAD_DIR_NAME}'.")
-    except Exception as e:
-        print(f"Folder migration warning: {e}")
 DATABASE_DIR = os.path.join(BASE_DIR, "database")
 
 settings = SettingsManager(BASE_DIR)
@@ -65,7 +83,6 @@ settings = SettingsManager(BASE_DIR)
 SAFE_TAGS_DB = []
 YANDE_TAGS_DB = []
 KONA_TAGS_DB = []
-DAN_TAGS_DB = []
 SANKAKU_TAGS_DB = []
 GELBOORU_TAGS_DB = []
 ANIME_TAGS_DB = []
@@ -89,6 +106,14 @@ app = Flask(__name__, static_folder=STATIC_FOLDER)
 # ponytail: pin threading mode — gevent (installed) buffers emits from our native worker threads
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
+@app.before_request
+def restrict_browser_access():
+    # Only allow requests from our native pywebview desktop app
+    user_agent = request.headers.get("User-Agent", "")
+    if "RemsDlDesktopApp" not in user_agent:
+        return "Web browser access is permanently disabled. Please use the desktop application.", 403
+
+
 shutdown_timer = None
 
 
@@ -99,9 +124,9 @@ def log_msg(worker_name, msg):
 
 shared.log_callback = log_msg
 
-def socketio_tag_handler(worker_name, filename, tags_list, artist_list, filepath=None, characters=None, copyrights=None, metadata_tags=None):
+def socketio_tag_handler(worker_name, filename, tags_list, artist_list, filepath=None, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
     try:
-        DatabaseManager.add_image_history(worker_name, filename, tags_list, artist_list, filepath, characters, copyrights, metadata_tags)
+        DatabaseManager.add_image_history(worker_name, filename, tags_list, artist_list, filepath, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
         socketio.emit("update_history")
     except Exception as e:
         print("Image Tag Save Error:", e)
@@ -114,49 +139,6 @@ def socketio_emit(event, data):
     except Exception: print(f"[SOCKETIO] {event}: {data}")
 
 shared.emit_callback = socketio_emit
-
-def _normalize_tag_entries(raw):
-    """Coerce list[str] | list[dict] tag DB entries into list[str]."""
-    out = []
-    if not isinstance(raw, list):
-        return out
-    for item in raw:
-        name = None
-        if isinstance(item, str):
-            name = item
-        elif isinstance(item, dict):
-            for key in ("tag", "title", "name", "value", "label", "slug"):
-                val = item.get(key)
-                if isinstance(val, str) and val.strip():
-                    name = val
-                    break
-        if name:
-            name = str(name).strip()
-            if name:
-                out.append(name)
-    return out
-
-
-def _filter_tags(db, query, limit=50):
-    """Case-insensitive prefix filter that never crashes on odd DB entries."""
-    if not db or not query:
-        return []
-    q = str(query).strip().lower()
-    if not q:
-        return []
-    results = []
-    for entry in db:
-        try:
-            if isinstance(entry, dict):
-                continue  # DBs are normalized at load; skip stragglers
-            text = str(entry).strip()
-            if text and text.lower().startswith(q):
-                results.append(text)
-                if len(results) >= limit:
-                    break
-        except Exception:
-            continue
-    return results
 
 
 def _live_tag_suggest(session, url, timeout=5):
@@ -173,22 +155,23 @@ def _live_tag_suggest(session, url, timeout=5):
         if isinstance(data, list):
             for item in data:
                 if isinstance(item, str) and item.strip():
-                    out.append(item.strip())
+                    out.append(html.unescape(item.strip()))
                 elif isinstance(item, dict):
                     for key in ("value", "name", "tag", "title", "label"):
                         val = item.get(key)
                         if isinstance(val, str) and val.strip():
-                            out.append(val.strip())
+                            out.append(html.unescape(val.strip()))
                             break
                 if len(out) >= 50:
                     break
+        # ponytail: autocomplete endpoints serve database junk ("1girl,") —
+        # no valid booru tag ends with a comma
+        out = [t for t in out if not t.endswith(",")]
         return list(dict.fromkeys(out))[:50]
     except Exception:
         return []
 
-
 def get_session(site, net_config):
-    net_config = net_config or {}
     session = requests.Session()
     if net_config.get("use_proxy"):
         p = net_config.get("proxy_url")
@@ -202,9 +185,20 @@ def get_session(site, net_config):
         session.headers.update({"User-Agent": "Mozilla/5.0", "Accept": "text/html,application/json,*/*"})
         adapter = HTTPAdapter(max_retries=Retry(total=3, backoff_factor=2.0, status_forcelist=[429, 500, 502, 503, 504], allowed_methods=["GET"]))
         session.mount("https://", adapter); session.mount("http://", adapter)
+    elif site in ["waifu", "neko"]: session.headers.update({"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
+    elif site == "yande": session.headers.update({"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
+    elif site == "kona":
+        # same UA as the konachan worker itself — Mozilla gets 403 on tag.json
+        session.headers.update({"User-Agent": "Rems_Dl/5.0 (by RemLover on GitHub)", "Accept": "application/json"})
+    elif site == "dan":
+        # help:api — identify with a unique UA, never impersonate a browser
+        session.headers.update({"User-Agent": "Rems_Dl/5.1", "Accept": "application/json"})
+    elif site == "gelbooru":
+        # same UA as the gelbooru worker itself — bare python-requests gets 401
+        session.headers.update({"User-Agent": "Rems_Dl/5.0 (by RemLover on GitHub)", "Accept": "application/json"})
     else:
         # Generic JSON-friendly UA for all booru/autocomplete fallbacks
-        session.headers.update({"User-Agent": "Mozilla/5.0 (Rems_Dl/5.0)", "Accept": "application/json"})
+        session.headers.update({"User-Agent": "Mozilla/5.0 (RemGodCatcher/5.1)", "Accept": "application/json"})
     return session
 
 
@@ -258,7 +252,7 @@ def folder_manager():
     if request.method == "POST":
         folder = request.json.get("folder", "")
         if folder:
-            shared.MASTER_FOLDER = os.path.join(folder, "Rems Dl")
+            shared.MASTER_FOLDER = os.path.join(folder, "Rem God")
             return jsonify({"folder": shared.MASTER_FOLDER})
     return jsonify({"folder": shared.MASTER_FOLDER})
 
@@ -268,6 +262,92 @@ def api_settings_manager():
         settings.save_api_settings(request.json)
         return jsonify({"success": True, "message": "All API keys saved successfully!"})
     return jsonify(settings.load_api_settings())
+
+@app.route("/api/pixiv/exchange-cookie", methods=["POST"])
+def pixiv_exchange_cookie():
+    """Exchange a pixiv.net PHPSESSID cookie for an OAuth refresh token.
+
+    Same flow as `gallery-dl oauth:pixiv`, but the login step is done
+    server-side with the user's cookie instead of a browser:
+    1. GET the pixiv-android login URL (PKCE) with the PHPSESSID cookie
+    2. Grab the `code` from the callback redirect
+    3. Exchange code + verifier for tokens at oauth.secure.pixiv.net
+    Pixiv is only reachable through the proxy, so the exchange always
+    goes through the configured proxy (default 127.0.0.1:10808).
+    """
+    import re as _re
+    import secrets as _secrets
+    import hashlib as _hashlib
+    import base64 as _base64
+
+    raw = (request.json or {}).get("cookie", "").strip()
+    if not raw:
+        return jsonify({"success": False, "error": "No cookie provided"}), 400
+
+    m = _re.search(r"PHPSESSID=([0-9a-fA-F_]+)", raw)
+    phpsessid = m.group(1) if m else raw.split(";")[0].strip()
+    if not phpsessid or "=" in phpsessid:
+        return jsonify({"success": False, "error": "Could not find PHPSESSID in the provided cookie"}), 400
+
+    proxy_url = settings.get("proxy_url") or "http://127.0.0.1:10808"
+    session = requests.Session()
+    session.proxies = {"http": proxy_url, "https": proxy_url}
+    session.verify = False
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Cookie": f"PHPSESSID={phpsessid}",
+    })
+
+    try:
+        verifier = _base64.urlsafe_b64encode(_secrets.token_bytes(64)).rstrip(b"=").decode()
+        challenge = _base64.urlsafe_b64encode(
+            _hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+        state = _secrets.token_urlsafe(16)
+
+        login_url = "https://app-api.pixiv.net/web/v1/login"
+        params = {"client": "pixiv-android", "code_challenge": challenge,
+                  "code_challenge_method": "S256", "state": state}
+        resp = session.get(login_url, params=params, timeout=30, allow_redirects=True)
+
+        code = None
+        for r in [resp, *resp.history]:
+            loc = r.headers.get("Location", "") or r.url
+            cm = _re.search(r"[?&]code=([^&#]+)", loc)
+            if cm:
+                code = cm.group(1)
+                break
+        if not code:
+            cm = _re.search(r"[?&]code=([^&#]+)", resp.text)
+            code = cm.group(1) if cm else None
+        if not code:
+            return jsonify({"success": False, "error": "Login with this cookie failed (no auth code returned). The cookie may be expired — log in to pixiv.net again and copy a fresh PHPSESSID."}), 400
+
+        token_resp = session.post(
+            "https://oauth.secure.pixiv.net/auth/token",
+            headers={"User-Agent": "PixivAndroidApp/5.0.234 (Android 11; Pixel 5)"},
+            data={
+                "client_id": "MOBrBDS8blbauoSck0ZfDbtuzpyT",
+                "client_secret": "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj",
+                "code": code,
+                "code_verifier": verifier,
+                "grant_type": "authorization_code",
+                "include_policy": "true",
+                "redirect_uri": "https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback",
+            },
+            timeout=30,
+        )
+        body = token_resp.json()
+        if "error" in body:
+            return jsonify({"success": False, "error": f"Token exchange failed: {body.get('error')}"}), 400
+
+        refresh_token = body.get("refresh_token", "")
+        if not refresh_token:
+            return jsonify({"success": False, "error": "Token exchange returned no refresh token"}), 400
+
+        settings.save_api_settings({**settings.load_api_settings(), "pixiv_refresh_token": refresh_token, "pixiv_cookie": raw})
+        return jsonify({"success": True, "refresh_token": refresh_token})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)[:300]}), 500
 
 @app.route("/api/tags/waifu", methods=["POST"])
 def get_waifu_tags():
@@ -286,73 +366,123 @@ def get_waifu_tags():
         return jsonify([t["name"] for t in WAIFU_TAGS_DB])
     return jsonify(['ass', 'ecchi', 'ero', 'genshin-impact', 'hentai', 'kamisato-ayaka', 'maid', 'marin-kitagawa', 'milf', 'mori-calliope', 'nami', 'one-piece', 'oppai', 'oral', 'paizuri', 'raiden-shogun', 'rem', 'selfies', 'uniform', 'waifu'])
 
+_suggest_sorted = {}
+
+def _suggest(db, query, limit=50):
+    """Prefix search over a tag list. Sorted DBs (sankaku/safe/yande/kona)
+    use bisect (~0.02ms); anything else falls back to a linear scan, which
+    also preserves popularity ordering (danbooru/gelbooru)."""
+    if not db or not query:
+        return []
+    key = id(db)
+    is_sorted = _suggest_sorted.get(key)
+    if is_sorted is None:
+        try:
+            is_sorted = all(db[i] <= db[i + 1] for i in range(len(db) - 1))
+        except TypeError:
+            is_sorted = False
+        _suggest_sorted[key] = is_sorted
+    if is_sorted:
+        out = []
+        i = bisect.bisect_left(db, query, 0, len(db))
+        while i < len(db):
+            t = db[i]
+            if not isinstance(t, str) or not t.startswith(query):
+                break
+            out.append(t)
+            if len(out) >= limit:
+                break
+            i += 1
+        return out
+    return [t for t in db if isinstance(t, str) and t.startswith(query)][:limit]
+
 @app.route("/api/tags/zerochan", methods=["POST"])
 def get_zerochan_suggestions():
+    data = request.json
+    query = data.get("query", "")
     try:
-        data = request.json or {}
-        query = str(data.get("query", "") or "")
-        if len(query.strip()) < 2:
-            return jsonify([])
-        try:
-            session = get_session("zero", data.get("net_config", {}) or {})
-            session.headers.update({"X-Requested-With": "XMLHttpRequest", "Referer": "https://www.zerochan.net/"})
-            resp = session.get(f"https://www.zerochan.net/suggest?q={urllib.parse.quote_plus(query.strip())}", timeout=5)
-            if resp.status_code == 200:
-                try:
-                    if "{" in resp.text or "[" in resp.text:
-                        sugs = resp.json()
-                    else:
-                        sugs = [s.strip() for s in resp.text.split('\n') if s.strip()]
-                except Exception:
+        session = get_session("zero", data.get("net_config", {}))
+        session.headers.update({"X-Requested-With": "XMLHttpRequest", "Referer": "https://www.zerochan.net/"})
+        resp = session.get(f"https://www.zerochan.net/suggest?q={urllib.parse.quote_plus(query)}", timeout=5)
+        if resp.status_code == 200:
+            try:
+                if "{" in resp.text or "[" in resp.text:
+                    sugs = resp.json()
+                else:
                     sugs = [s.strip() for s in resp.text.split('\n') if s.strip()]
-                cleaned = []
-                for s in sugs:
-                    if isinstance(s, dict):
-                        for key in ("value", "name", "tag", "title", "label"):
-                            val = s.get(key)
-                            if isinstance(val, str) and val.strip():
-                                cleaned.append(val.split('|')[0].strip())
-                                break
-                    elif isinstance(s, str) and s.strip():
-                        cleaned.append(s.split('|')[0].strip())
-                cleaned = [c for c in dict.fromkeys(cleaned) if c]
-                if cleaned:
-                    return jsonify(cleaned[:50])
-        except Exception:
-            pass
-        return jsonify([])
-    except Exception:
-        return jsonify([])
+            except Exception:
+                sugs = [s.strip() for s in resp.text.split('\n') if s.strip()]
+            cleaned = []
+            for s in sugs:
+                if isinstance(s, dict):
+                    for key in ("value", "name", "tag", "title", "label"):
+                        val = s.get(key)
+                        if isinstance(val, str) and val.strip():
+                            cleaned.append(val.split('|')[0].strip())
+                            break
+                elif isinstance(s, str) and s.strip():
+                    cleaned.append(s.split('|')[0].strip())
+            cleaned = [c for c in dict.fromkeys(cleaned) if c]
+            if cleaned:
+                return jsonify(cleaned[:50])
+    except Exception: pass
+    return jsonify([])
 
 @app.route("/api/tags/safe", methods=["POST"])
 def get_safe_suggestions():
+    data = request.json or {}
+    query = (data.get("query", "") or "").lower().strip().replace(" ", "_")
+    if len(query) < 2: return jsonify([])
     try:
-        data = request.json or {}
-        query = str(data.get("query", "") or "")
-        if len(query.strip()) < 2:
-            return jsonify([])
-        local = _filter_tags(_normalize_tag_entries(SAFE_TAGS_DB), query)
-        if local:
-            return jsonify(local)
-        # Live fallback: Safebooru autocomplete
-        try:
-            session = get_session("safe", data.get("net_config", {}))
-            live = _live_tag_suggest(
-                session,
-                f"https://safebooru.org/autocomplete.php?q={urllib.parse.quote(query.strip())}")
-            if live:
-                return jsonify(live)
-        except Exception:
-            pass
-        return jsonify(local)
-    except Exception:
-        return jsonify([])
+        session = get_session("safe", data.get("net_config", {}))
+        live = _live_tag_suggest(
+            session,
+            f"https://safebooru.org/autocomplete.php?q={urllib.parse.quote(query)}")
+        if live: return jsonify(live)
+    except Exception: pass
+    try:
+        session = get_session("safe", data.get("net_config", {}))
+        resp = session.get("https://safebooru.org/index.php",
+                           params={"page": "dapi", "s": "tag", "q": "index",
+                                   "name_pattern": query + "%", "orderby": "count",
+                                   "order": "DESC", "limit": 50, "json": 1},
+                           timeout=5)
+        if resp.status_code == 200:
+            names = []
+            try:
+                payload = resp.json()
+                items = payload.get("tag", payload) if isinstance(payload, dict) else payload
+                scored = []
+                for t in items:
+                    if not isinstance(t, dict) or not t.get("name"):
+                        continue
+                    try:
+                        c = int(t.get("count", t.get("post_count", 0)) or 0)
+                    except (TypeError, ValueError):
+                        c = 0
+                    scored.append((html.unescape(t["name"]), c))
+                names = [n for n, _ in sorted(scored, key=lambda nc: -nc[1])]
+            except Exception:
+                # ponytail: safebooru answers tag queries as XML regardless of json=1
+                import xml.etree.ElementTree as _et
+                try:
+                    root = _et.fromstring(resp.text)
+                    names = [(html.unescape(el.get("name", "")), int(el.get("count", 0) or 0))
+                             for el in root.iter("tag") if el.get("name")]
+                    names = [n for n, _ in sorted(names, key=lambda nc: -nc[1])]
+                except Exception:
+                    names = []
+            names = [n for n in names if n.lower().startswith(query)]
+            if names: return jsonify(names[:20])
+    except Exception: pass
+    if not SAFE_TAGS_DB: return jsonify([])
+    return jsonify(_suggest(SAFE_TAGS_DB, query))
 
 @app.route("/api/tags/rule34", methods=["POST"])
 def get_rule34_suggestions():
-    data = request.json or {}
-    query = str(data.get("query", "") or "")
-    if len(query.strip()) < 2: return jsonify([])
+    data = request.json
+    query = data.get("query", "")
+    if len(query) < 2: return jsonify([])
     try:
         session = get_session("rule34", data.get("net_config", {}))
         url = f"https://api.rule34.xxx/autocomplete.php?q={urllib.parse.quote(query)}"
@@ -367,226 +497,383 @@ def get_rule34_suggestions():
     except Exception: pass
     return jsonify([])
 
-@app.route("/api/tags/yande", methods=["POST"])
-def get_yande_suggestions():
+@app.route("/api/tags/zerochan/subtags", methods=["POST"])
+def get_zerochan_subtags():
+    """Sub-tag boxes (outfits etc.) from a Zerochan tag page carousel."""
+    from workers.zerochan import parse_zerochan_subtags
+    data = request.json or {}
+    tag = (data.get("tag", "") or "").strip().lstrip("-")
+    if not tag:
+        return jsonify([])
     try:
-        data = request.json or {}
-        query = str(data.get("query", "") or "")
-        if len(query.strip()) < 2:
+        session = get_session("zero", data.get("net_config", {}))
+        session.headers.update({"X-Requested-With": "XMLHttpRequest", "Referer": "https://www.zerochan.net/"})
+        resp = session.get("https://www.zerochan.net/" + urllib.parse.quote_plus(tag), timeout=10)
+        if resp.status_code == 200:
+            return jsonify(parse_zerochan_subtags(resp.text)[:30])
+    except Exception: pass
+    return jsonify([])
+
+@app.route("/api/tags/anime_dl/subtags", methods=["POST"])
+def get_anime_dl_subtags():
+    """Child tags via api.anime-pictures.net: resolve tag id, then /children."""
+    from curl_cffi import requests as curl_requests
+    data = request.json or {}
+    tag = (data.get("tag", "") or "").strip().lower()
+    if not tag:
+        return jsonify([])
+    try:
+        net = data.get("net_config", {}) or {}
+        s = curl_requests.Session(impersonate="chrome131")
+        if net.get("use_proxy") and net.get("proxy_url"):
+            s.proxies = {"http": net["proxy_url"], "https": net["proxy_url"]}
+        s.cookies.set("sitelang", "en", domain=".anime-pictures.net")
+        r = s.get("https://api.anime-pictures.net/api/v3/tags", params={"tag": tag, "lang": "en"}, timeout=20)
+        if r.status_code != 200:
             return jsonify([])
-        local = _filter_tags(_normalize_tag_entries(YANDE_TAGS_DB), query)
-        if local:
-            return jsonify(local)
-        try:
-            session = get_session("yande", data.get("net_config", {}))
-            live = _live_tag_suggest(
-                session,
-                f"https://yande.re/tag/suggest.json?tag={urllib.parse.quote(query.strip())}")
-            if live:
-                return jsonify(live)
-        except Exception:
-            pass
-        return jsonify(local)
+        hits = [t for t in r.json().get("tags", []) if isinstance(t, dict) and str(t.get("tag", "")).lower() == tag]
+        if not hits:
+            return jsonify([])
+        r2 = s.get(f"https://api.anime-pictures.net/api/v3/tags/{hits[0]['id']}/children", params={"lang": "en"}, timeout=20)
+        if r2.status_code != 200:
+            return jsonify([])
+        kind = {1: "character", 4: "artist", 5: "copyright", 7: "metadata"}
+        out = []
+        for t in r2.json().get("tags", []):
+            if not isinstance(t, dict) or not t.get("tag"):
+                continue
+            out.append({"name": t["tag"], "count": t.get("num_pub", t.get("num", 0)),
+                        "kind": kind.get(t.get("type"), "tag"), "id": t.get("id")})
+        return jsonify(out)
     except Exception:
         return jsonify([])
 
+@app.route("/api/tags/yande", methods=["POST"])
+def get_yande_suggestions():
+    data = request.json or {}
+    query = (data.get("query", "") or "").lower().strip()
+    if len(query) < 2: return jsonify([])
+    try:
+        session = get_session("yande", data.get("net_config", {}))
+        resp = session.get("https://yande.re/tag.json",
+                           params={"name": query + "*", "order": "count", "limit": 20},
+                           timeout=5)
+        if resp.status_code == 200:
+            payload = resp.json()
+            items = payload if isinstance(payload, list) else payload.get("tags", [])
+            names = [t.get("name") for t in items
+                     if isinstance(t, dict) and t.get("name")
+                     and str(t["name"]).lower().startswith(query)]
+            if names: return jsonify(names)
+    except Exception: pass
+    if not YANDE_TAGS_DB: return jsonify([])
+    return jsonify(_suggest(YANDE_TAGS_DB, query))
+
 @app.route("/api/tags/kona", methods=["POST"])
 def get_kona_suggestions():
+    data = request.json or {}
+    query = (data.get("query", "") or "").lower().strip()
+    if len(query) < 2: return jsonify([])
     try:
-        data = request.json or {}
-        query = str(data.get("query", "") or "")
-        if len(query.strip()) < 2:
+        session = get_session("kona", data.get("net_config", {}))
+        live = _live_tag_suggest(
+            session,
+            f"https://konachan.com/tag.json?name={urllib.parse.quote(query)}*&limit=50&order=count")
+        if live: return jsonify(live)
+    except Exception: pass
+    if not KONA_TAGS_DB: return jsonify([])
+    return jsonify(_suggest(KONA_TAGS_DB, query))
+
+@app.route("/api/tags/dan/subtags", methods=["POST"])
+def get_dan_subtags():
+    """Related + wiki-linked tags from danbooru's related_tag endpoint."""
+    data = request.json or {}
+    tag = (data.get("tag", "") or "").strip().lstrip("-")
+    if not tag:
+        return jsonify([])
+    try:
+        session = get_session("dan", data.get("net_config", {}))
+        _login, _key = os.environ.get("DANBOORU_LOGIN", ""), os.environ.get("DANBOORU_API_KEY", "")
+        auth = (_login, _key) if _login and _key else None
+        resp = session.get("https://danbooru.donmai.us/related_tag.json",
+                           params={"query": tag}, auth=auth, timeout=8)
+        if resp.status_code != 200:
             return jsonify([])
-        local = _filter_tags(_normalize_tag_entries(KONA_TAGS_DB), query)
-        if local:
-            return jsonify(local)
-        try:
-            session = get_session("kona", data.get("net_config", {}))
-            live = _live_tag_suggest(
-                session,
-                f"https://konachan.com/tag/suggest.json?tag={urllib.parse.quote(query.strip())}")
-            if live:
-                return jsonify(live)
-        except Exception:
-            pass
-        return jsonify(local)
+        payload = resp.json()
+        seen = {}
+        wiki = payload.get("wiki_page_tags", []) if isinstance(payload, dict) else []
+        for t in wiki:
+            if isinstance(t, dict) and t.get("name"):
+                seen.setdefault(t["name"], t.get("post_count", 0))
+        for item in payload.get("related_tags", []) if isinstance(payload, dict) else []:
+            if isinstance(item, (list, tuple)) and len(item) >= 1 and item[0]:
+                seen.setdefault(str(item[0]), item[1] if len(item) > 1 else 0)
+            elif isinstance(item, dict) and item.get("name"):
+                seen.setdefault(item["name"], item.get("post_count", 0))
+        out = [{"tag": n, "count": c} for n, c in seen.items()
+               if n.lower() != tag.lower()][:15]
+        return jsonify(out)
     except Exception:
         return jsonify([])
 
 @app.route("/api/tags/dan", methods=["POST"])
 def get_dan_suggestions():
+    data = request.json or {}
+    query = (data.get("query", "") or "").lower().strip()
+    if len(query) < 2: return jsonify([])
     try:
-        data = request.json or {}
-        query = str(data.get("query", "") or "")
-        if len(query.strip()) < 2:
-            return jsonify([])
-        local = _filter_tags(_normalize_tag_entries(DAN_TAGS_DB), query)
-        if local:
-            return jsonify(local)
-        # Live fallback: Danbooru autocomplete
-        try:
-            session = get_session("dan", data.get("net_config", {}))
-            live = _live_tag_suggest(
-                session,
-                f"https://danbooru.donmai.us/autocomplete.json?search[name_matches]={urllib.parse.quote(query.strip())}*")
-            if live:
-                return jsonify(live)
-        except Exception:
-            pass
-        return jsonify(local)
-    except Exception:
-        return jsonify([])
+        session = get_session("dan", data.get("net_config", {}))
+        # help:api — authenticated requests get higher limits; key lives in .env (git-ignored)
+        auth = None
+        _login, _key = os.environ.get("DANBOORU_LOGIN", ""), os.environ.get("DANBOORU_API_KEY", "")
+        if _login and _key:
+            auth = (_login, _key)
+        resp = session.get("https://danbooru.donmai.us/autocomplete.json",
+                           params={"search[query]": query + "*", "search[type]": "tag_query"},
+                           auth=auth, timeout=5)
+        if resp.status_code == 200:
+            names = []
+            for t in resp.json():
+                if isinstance(t, dict) and t.get("value"):
+                    names.append(html.unescape(t["value"]))
+                elif isinstance(t, str) and t.strip():
+                    names.append(html.unescape(t.strip()))
+            names = list(dict.fromkeys(names))[:20]
+            if names: return jsonify(names)
+    except Exception: pass
+    return jsonify([])
 
 @app.route("/api/tags/sankaku", methods=["POST"])
 def get_sankaku_suggestions():
+    data = request.json or {}
+    query = (data.get("query", "") or "").lower().strip()
+    if len(query) < 2: return jsonify([])
+    # ponytail: the site's own autocomplete (per HAR capture) serves real
+    # tags with counts; the local dump is fragment-polluted, keep it as fallback
     try:
-        data = request.json or {}
-        query = str(data.get("query", "") or "")
-        if len(query.strip()) < 2:
-            return jsonify([])
-        local = _filter_tags(_normalize_tag_entries(SANKAKU_TAGS_DB), query)
-        if local:
-            return jsonify(local)
-        try:
-            session = get_session("sankaku", data.get("net_config", {}))
-            live = _live_tag_suggest(
-                session,
-                f"https://capi-v2.sankakucomplex.com/autocomplete?tag={urllib.parse.quote(query.strip())}")
-            if live:
-                return jsonify(live)
-        except Exception:
-            pass
-        return jsonify(local)
+        session = get_session("sankaku", data.get("net_config", {}))
+        resp = session.get("https://sankakuapi.com/tags/autosuggestCreating",
+                           params={"lang": "en", "tag": query, "show_meta": 1,
+                                   "target": "post", "show_rating": "true"},
+                           timeout=5)
+        if resp.status_code == 200:
+            payload = resp.json()
+            items = payload if isinstance(payload, list) else payload.get("tags", [])
+            names = [t.get("tagName") or t.get("name") for t in items
+                     if isinstance(t, dict) and (t.get("tagName") or t.get("name"))]
+            names = [n for n in dict.fromkeys(names) if not n.endswith(",")]
+            if names: return jsonify(names[:50])
     except Exception:
-        return jsonify([])
+        pass
+    local = _suggest(SANKAKU_TAGS_DB, query) if SANKAKU_TAGS_DB else []
+    if local:
+        return jsonify(local)
+    try:
+        session = get_session("sankaku", data.get("net_config", {}))
+        live = _live_tag_suggest(
+            session,
+            f"https://capi-v2.sankakucomplex.com/autocomplete?tag={urllib.parse.quote(query)}")
+        if live:
+            return jsonify(live)
+    except Exception:
+        pass
+    return jsonify(local)
 
 @app.route("/api/tags/gelbooru", methods=["POST"])
 def get_gelbooru_suggestions():
+    data = request.json or {}
+    query = (data.get("query", "") or "").lower().strip().replace(" ", "_")
+    if len(query) < 2: return jsonify([])
     try:
-        data = request.json or {}
-        query = str(data.get("query", "") or "")
-        if len(query.strip()) < 2:
-            return jsonify([])
-        local = _filter_tags(_normalize_tag_entries(GELBOORU_TAGS_DB), query)
-        if local:
-            return jsonify(local)
-        try:
-            session = get_session("gelbooru", data.get("net_config", {}))
-            live = _live_tag_suggest(
-                session,
-                f"https://gelbooru.com/index.php?page=autocomplete2&term={urllib.parse.quote(query.strip())}&type=tag_query&limit=20")
-            if live:
-                return jsonify(live)
-        except Exception:
-            pass
-        return jsonify(local)
-    except Exception:
-        return jsonify([])
+        session = get_session("gelbooru", data.get("net_config", {}))
+        params = {"page": "dapi", "s": "tag", "q": "index",
+                  "name_pattern": query + "%", "orderby": "count",
+                  "order": "DESC", "limit": 20, "json": 1}
+        api_key = os.getenv("GELBOORU_API_KEY", "")
+        user_id = os.getenv("GELBOORU_USER_ID", "")
+        if api_key and user_id:
+            params["api_key"] = api_key
+            params["user_id"] = user_id
+        resp = session.get("https://gelbooru.com/index.php", params=params, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            tags = data.get("tag", data) if isinstance(data, dict) else data
+            names = [html.unescape(t.get("name")) for t in tags if isinstance(t, dict) and t.get("name")]
+            if names: return jsonify(names)
+    except Exception: pass
+    if not GELBOORU_TAGS_DB: return jsonify([])
+    return jsonify([t for t in GELBOORU_TAGS_DB if t.lower().startswith(query)][:50])
 
 @app.route("/api/tags/anime_dl", methods=["POST"])
 def get_anime_dl_suggestions():
+    data = request.json or {}
+    query = (data.get("query", "") or "").strip()
+    if len(query) < 1: return jsonify([])
     try:
-        data = request.json or {}
-        query = str(data.get("query", "") or "")
-        if len(query.strip()) < 2:
-            return jsonify([])
-        local = _filter_tags(_normalize_tag_entries(ANIME_TAGS_DB), query)
-        if local:
-            return jsonify(local)
-        # Live fallback: Anime-Pictures tag search (best-effort)
-        try:
-            session = get_session("anime_dl", data.get("net_config", {}))
-            live = _live_tag_suggest(
-                session,
-                f"https://anime-pictures.net/api/v3/tags?search={urllib.parse.quote(query.strip())}")
-            if live:
-                return jsonify(live)
-        except Exception:
-            pass
-        return jsonify(local)
-    except Exception:
-        return jsonify([])
+        from curl_cffi import requests as curl_requests
+        net = data.get("net_config", {}) or {}
+        s = curl_requests.Session(impersonate="chrome131")
+        if net.get("use_proxy") and net.get("proxy_url"):
+            s.proxies = {"http": net["proxy_url"], "https": net["proxy_url"]}
+        s.cookies.set("sitelang", "en", domain=".anime-pictures.net")
+        r = s.get("https://api.anime-pictures.net/api/v3/tags:autocomplete",
+                  params={"tag": query, "lang": "en"}, timeout=10)
+        if r.status_code == 200:
+            items = r.json().get("tags", [])
+            scored = []
+            for t in items:
+                if not isinstance(t, dict) or not t.get("t"):
+                    continue
+                try:
+                    c = int(t.get("c", 0) or 0)
+                except (TypeError, ValueError):
+                    c = 0
+                scored.append((t["t"], c))
+            ql = query.lower()
+            # ponytail: prefix matches first, then substring hits — each by count
+            names = ([n for n, _ in sorted(((n, c) for n, c in scored if n.lower().startswith(ql)), key=lambda nc: -nc[1])]
+                     + [n for n, _ in sorted(((n, c) for n, c in scored if not n.lower().startswith(ql)), key=lambda nc: -nc[1])])
+            if names: return jsonify(names[:50])
+    except Exception: pass
+    if not ANIME_TAGS_DB: return jsonify([])
+    return jsonify([t for t in ANIME_TAGS_DB if t.startswith(query.lower())][:50])
 
 @app.route("/api/tags/eshuushuu", methods=["POST"])
 def get_eshuushuu_suggestions():
-    try:
-        data = request.json or {}
-        query = str(data.get("query", "") or "")
-        if len(query.strip()) < 2:
-            return jsonify([])
-        local = _filter_tags(_normalize_tag_entries(ESHUUSHUU_TAGS_DB), query)
-        if local:
-            return jsonify(local)
-        try:
-            session = get_session("eshuushuu", data.get("net_config", {}))
-            live = _live_tag_suggest(
-                session,
-                f"https://e-shuushuu.net/autocomplete.php?tag={urllib.parse.quote(query.strip())}")
-            if live:
-                return jsonify(live)
-        except Exception:
-            pass
+    data = request.json or {}
+    query = (data.get("query", "") or "").lower().strip()
+    if len(query) < 2: return jsonify([])
+    local = _suggest(ESHUUSHUU_TAGS_DB, query) if ESHUUSHUU_TAGS_DB else []
+    if local:
         return jsonify(local)
+    try:
+        session = get_session("eshuushuu", data.get("net_config", {}))
+        resp = session.get("https://e-shuushuu.net/api/v1/tags",
+                           params={"search": query}, timeout=8)
+        if resp.status_code == 200:
+            payload = resp.json()
+            items = payload.get("tags", payload) if isinstance(payload, dict) else payload
+            # ponytail: typed objects, not bare names — same title can be an
+            # artist, a character and a general tag at once; the UI colors rows
+            # by type so identical titles stay distinguishable
+            out = []
+            for t in items:
+                if not isinstance(t, dict):
+                    continue
+                title = t.get("title") or t.get("name")
+                if not title:
+                    continue
+                try:
+                    ttype = int(t.get("type", 0))
+                except (TypeError, ValueError):
+                    ttype = 0
+                out.append({"title": title, "type": ttype})
+            if out: return jsonify(out[:50])
     except Exception:
-        return jsonify([])
+        pass
+    return jsonify(local)
 
 @app.route("/api/tags/nekosapi", methods=["POST"])
 def get_nekosapi_suggestions():
+    data = request.json or {}
+    query = (data.get("query", "") or "").lower()
+    if len(query) < 2: return jsonify([])
+    live = _refresh_nekosapi_live_tags(data.get("net_config", {}))
+    out = [t for t in live if t.lower().startswith(query)]
+    if NEKOSAPI_TAGS_DB:
+        out += [t for t in NEKOSAPI_TAGS_DB if t.lower().startswith(query) and t not in out]
+    return jsonify(out[:50])
+
+_nekosapi_live_cache = {"tags": [], "at": 0.0}
+
+def _refresh_nekosapi_live_tags(net_config):
+    # ponytail: no tag catalogue endpoint exists, so harvest the
+    # vocabulary from browsed images instead, refreshed daily
+    import time as _time
+    now = _time.time()
+    if _nekosapi_live_cache["tags"] and now - _nekosapi_live_cache["at"] < 86400:
+        return _nekosapi_live_cache["tags"]
+    live_file = os.path.join(DATABASE_DIR, "nekosapi_live_tags.json")
+    disk = []
     try:
-        data = request.json or {}
-        query = str(data.get("query", "") or "")
-        if len(query.strip()) < 2:
-            return jsonify([])
-        local = _filter_tags(_normalize_tag_entries(NEKOSAPI_TAGS_DB), query)
-        if local:
-            return jsonify(local)
-        try:
-            session = get_session("nekosapi", data.get("net_config", {}))
-            live = _live_tag_suggest(
-                session,
-                f"https://nekosapi.com/api/v4/tags?search={urllib.parse.quote(query.strip())}")
-            if live:
-                return jsonify(live)
-        except Exception:
-            pass
-        return jsonify(local)
+        import json as _json
+        with open(live_file, "r", encoding="utf-8") as f:
+            saved = _json.load(f)
+        disk = saved.get("tags", []) or []
+        if disk and now - float(saved.get("at", 0)) < 86400:
+            _nekosapi_live_cache.update(tags=disk, at=now)
+            return disk
     except Exception:
-        return jsonify([])
+        pass
+    try:
+        session = get_session("nekosapi", net_config or {})
+        seen = list(disk)
+        for offset in (0, 100, 200, 300, 400):
+            resp = session.get("https://api.nekosapi.com/v4/images",
+                               params={"limit": 100, "offset": offset}, timeout=10)
+            if resp.status_code != 200:
+                break
+            items = resp.json().get("items", [])
+            if not items:
+                break
+            for im in items:
+                for t in im.get("tags", []) or []:
+                    if t and t not in seen:
+                        seen.append(t)
+        if seen:
+            try:
+                import json as _json
+                with open(live_file, "w", encoding="utf-8") as f:
+                    _json.dump({"tags": seen, "at": now}, f)
+            except Exception:
+                pass
+            _nekosapi_live_cache.update(tags=seen, at=now)
+            return seen
+    except Exception:
+        pass
+    return disk
+
+_nekosia_tags_cache = {"tags": [], "at": 0}
 
 @app.route("/api/tags/nekosia", methods=["POST"])
 def get_nekosia_suggestions():
-    try:
-        data = request.json or {}
-        query = str(data.get("query", "") or "")
-        if len(query.strip()) < 2:
-            return jsonify([])
-        local = _filter_tags(_normalize_tag_entries(NEKOSIA_TAGS_DB), query)
-        return jsonify(local)
-    except Exception:
-        return jsonify([])
+    import time as _time
+    data = request.json or {}
+    query = (data.get("query", "") or "").lower().strip()
+    if len(query) < 2: return jsonify([])
+    # ponytail: /tags has no search param — fetch all once/hour, filter here
+    if not _nekosia_tags_cache["tags"] or _time.time() - _nekosia_tags_cache["at"] > 3600:
+        try:
+            session = get_session("nekosia", data.get("net_config", {}))
+            resp = session.get("https://api.nekosia.cat/api/v1/tags", timeout=10)
+            if resp.status_code == 200:
+                tags = resp.json().get("tags", [])
+                _nekosia_tags_cache["tags"] = [t for t in tags if isinstance(t, str)]
+                _nekosia_tags_cache["at"] = _time.time()
+        except Exception: pass
+    live = [t for t in _nekosia_tags_cache["tags"] if t.lower().startswith(query)][:50]
+    if live: return jsonify(live)
+    if not NEKOSIA_TAGS_DB: return jsonify([])
+    return jsonify([t for t in NEKOSIA_TAGS_DB if t.lower().startswith(query)][:50])
 
 @app.route("/api/tags/gsbooru", methods=["POST"])
 def get_gsbooru_suggestions():
+    data = request.json or {}
+    query = (data.get("query", "") or "").lower().strip()
+    if len(query) < 2: return jsonify([])
     try:
-        data = request.json or {}
-        query = str(data.get("query", "") or "")
-        if len(query.strip()) < 2:
-            return jsonify([])
-        local = _filter_tags(_normalize_tag_entries(GSBOORU_TAGS_DB), query)
-        if local:
-            return jsonify(local)
-        try:
-            session = get_session("gsbooru", data.get("net_config", {}))
-            live = _live_tag_suggest(
-                session,
-                f"https://gsbooru.net/index.php?page=autocomplete2&term={urllib.parse.quote(query.strip())}&type=tag_query&limit=20")
-            if live:
-                return jsonify(live)
-        except Exception:
-            pass
-        return jsonify(local)
+        session = get_session("gsbooru", data.get("net_config", {}))
+        resp = session.get("https://gsbooru.org/api/tags/tag-suggestions",
+                           params={"tag_string": query}, timeout=5)
+        if resp.status_code == 200:
+            items = resp.json().get("tags", [])
+            names = [t.get("name") for t in items
+                     if isinstance(t, dict) and t.get("name")]
+            if names: return jsonify(names[:50])
     except Exception:
-        return jsonify([])
+        pass
+    local = _suggest(GSBOORU_TAGS_DB, query) if GSBOORU_TAGS_DB else []
+    return jsonify(local)
 
 # --- TAG HISTORY & FAVORITES API ---
 @app.route("/api/history", methods=["GET"])
@@ -600,11 +887,18 @@ def clear_tag_history():
 @app.route("/api/history/remove", methods=["POST"])
 def remove_tag_history():
     data = request.json
-    DatabaseManager.remove_tag_history(data["site"], data["tag"])
+    DatabaseManager.remove_tag_history(data["site"], data["tag"], data.get("rating"))
     return jsonify({"success": True})
 
 @app.route("/api/image_history", methods=["GET"])
-def get_image_history(): return jsonify(DatabaseManager.load_image_history())
+def get_image_history():
+    hist = DatabaseManager.load_image_history()
+    try:
+        favs = {i.get("filename") for i in shared.load_gallery().get("images", []) if i.get("favourite")}
+        hist = [{**h, "favourite": h.get("filename") in favs} for h in hist]
+    except Exception:
+        pass
+    return jsonify(hist)
 
 @app.route("/api/image_history/clear", methods=["POST"])
 def clear_image_history():
@@ -625,8 +919,6 @@ def manage_favorites():
         return jsonify({"success": True, "favorites": favs})
     return jsonify(DatabaseManager.load_favorites())
 
-
-GALLERY_FILE = os.path.join(DATABASE_DIR, "gallery.json")
 
 EXTENSIONS_IMAGE = {'.jpg','.jpeg','.png','.webp','.gif','.bmp','.tiff','.tif'}
 EXTENSIONS_VIDEO = {'.mp4','.webm','.mov','.avi','.mkv'}
@@ -652,7 +944,9 @@ def _apply_gallery_filters(images, search, site_filters, fav_only, type_filters,
         return tags if isinstance(tags, list) else []
 
     if search:
-        images = [i for i in images if any(search in t.lower() for t in _get_all_tags(i))]
+        # ponytail: underscores and spaces are equivalent, case already lowered at intake
+        sq = search.replace("_", " ")
+        images = [i for i in images if any(sq in t.lower().replace("_", " ") for t in _get_all_tags(i))]
     if site_filters:
         images = [i for i in images if i.get("site", "").lower() in site_filters]
     if fav_only:
@@ -668,27 +962,33 @@ def _apply_gallery_filters(images, search, site_filters, fav_only, type_filters,
         images = [i for i in images if matches_type(i)]
     if rating_filters:
         SUPPORTED_RATINGS = {
-            "safe": {"safe"},
-            "dan": {"safe", "sensitive", "questionable", "explicit"},
+            "safebooru": {"safe"},
+            "danbooru": {"safe", "sensitive", "questionable", "explicit"},
             "gelbooru": {"safe", "sensitive", "questionable", "explicit"},
             "gsbooru": {"safe", "sensitive", "questionable", "explicit"},
-            "kona": {"safe", "questionable", "explicit"},
+            "konachan": {"safe", "questionable", "explicit"},
             "yande": {"safe", "questionable", "explicit"},
             "sankaku": {"safe", "questionable", "explicit"},
             "rule34": {"explicit"},
-            "safebooru": {"safe"},
             "nekosapi": {"safe", "sensitive", "questionable", "explicit"},
             "nekosia": {"safe", "sensitive"},
             "waifu.im": {"safe", "explicit"},
+            "pixiv": {"safe", "explicit"},
         }
         rating_aliases = {
             "safe": ["safe", "rating:safe", "general", "rating:general", "rating:g"],
             "sensitive": ["sensitive", "suggestive", "rating:sensitive", "rating:s"],
             "questionable": ["questionable", "borderline", "rating:questionable", "rating:q"],
-            "explicit": ["explicit", "rating:explicit", "rating:e", "nsfw"],
+            "explicit": ["explicit", "rating:explicit", "rating:e", "nsfw", "r18"],
         }
         def matches_any_rating(img):
             site = shared.normalize_site(img.get("site", ""))
+            # ponytail: rule34 is all-explicit with no rating in path or tags
+            if site == "rule34" and "explicit" in rating_filters:
+                return True
+            # ponytail: pinterest has no rating system — treated as all-safe
+            if site == "pinterest" and "safe" in rating_filters:
+                return True
             fpl = img.get("filepath", "").lower()
             all_tags = _get_all_tags(img)
             for rf in rating_filters:
@@ -792,6 +1092,38 @@ def toggle_gallery_fav():
             return jsonify({"success": True, "favourite": img["favourite"]})
     return jsonify({"success": False, "error": "not found"}), 404
 
+@app.route("/api/gallery/favourite_by_name", methods=["POST"])
+def toggle_gallery_fav_by_name():
+    fn = (request.json or {}).get("filename", "")
+    gallery = shared.load_gallery()
+    for img in gallery["images"]:
+        if img.get("filename") == fn:
+            img["favourite"] = not img.get("favourite", False)
+            shared.save_gallery(gallery)
+            return jsonify({"success": True, "favourite": img["favourite"]})
+    return jsonify({"success": False, "error": "not found"}), 404
+
+@app.route("/api/gallery/delete_by_name", methods=["POST"])
+def delete_gallery_image_by_name():
+    fn = (request.json or {}).get("filename", "")
+    gallery = shared.load_gallery()
+    for i, img in enumerate(gallery["images"]):
+        if img.get("filename") == fn:
+            full_path = os.path.join(shared.MASTER_FOLDER, img.get("filepath", ""))
+            try:
+                if os.path.exists(full_path):
+                    os.remove(full_path)
+            except Exception as e:
+                print("Error deleting file:", e)
+            gallery["images"].pop(i)
+            shared.save_gallery(gallery)
+            try:
+                DatabaseManager.remove_image_history(fn)
+            except Exception as e:
+                print("History delete error:", e)
+            return jsonify({"success": True})
+    return jsonify({"success": False, "error": "not found"}), 404
+
 @app.route("/api/gallery/tags", methods=["GET"])
 def get_gallery_tags():
     gallery = shared.load_gallery()
@@ -815,10 +1147,16 @@ def gallery_file(filepath):
         return "Forbidden", 403
     if os.path.isfile(full):
         return send_file(full)
-    return "Not found", 404
+    return "Image was deleted", 404
 
 @app.route("/api/thumb_by_name/<filename>")
 def thumb_by_name(filename):
+    # ponytail: check the disk cache BEFORE walking the library — the walk
+    # cost a full 4GB+ traversal per thumbnail on cache hits
+    cache_key = hashlib.sha256(filename.encode()).hexdigest()[:16]
+    cache_path = os.path.join(THUMB_CACHE, cache_key + ".jpg")
+    if os.path.exists(cache_path):
+        return send_file(cache_path, mimetype='image/jpeg')
     full = os.path.join(MASTER_FOLDER, filename)
     if not os.path.isfile(full):
         # Search subdirectories
@@ -827,7 +1165,7 @@ def thumb_by_name(filename):
                 full = os.path.join(root, filename)
                 break
         else:
-            return "Not found", 404
+            return "Image was deleted", 404
     return redirect_to_thumb(full, filename)
 
 def redirect_to_thumb(full_path, rel_filename):
@@ -854,15 +1192,16 @@ def gallery_thumb(filepath):
     full = os.path.normpath(os.path.join(MASTER_FOLDER, filepath))
     if not full.startswith(os.path.normpath(MASTER_FOLDER)):
         return "Forbidden", 403
-    if not os.path.isfile(full):
-        return "Not found", 404
-
     ext = os.path.splitext(full)[1].lower()
     cache_key = hashlib.sha256(filepath.encode()).hexdigest()[:16]
     cache_path = os.path.join(THUMB_CACHE, cache_key + ".jpg")
 
     if os.path.exists(cache_path):
         return send_file(cache_path, mimetype='image/jpeg')
+    # ponytail: stale cache still beats a broken icon when the user
+    # deleted the source file outside the app, so it is checked above
+    if not os.path.isfile(full):
+        return "Image was deleted", 404
 
     if ext in EXTENSIONS_VIDEO:
         import subprocess
@@ -917,8 +1256,13 @@ def delete_gallery_image():
             except Exception as e:
                 print("Error deleting file:", e)
             # حذف از دیتابیس گالری
+            fn = img.get("filename", "")
             gallery["images"].pop(i)
             shared.save_gallery(gallery)
+            try:
+                DatabaseManager.remove_image_history(fn)
+            except Exception as e:
+                print("History delete error:", e)
             return jsonify({"success": True})
     return jsonify({"success": False, "error": "Not found"}), 404 
 
@@ -957,6 +1301,15 @@ def rescan_gallery():
                 })
                 by_fn[fn] = gallery["images"][-1]
                 count_added += 1
+    # drop duplicate filenames (a download landing mid-scan can double-add)
+    seen = set()
+    unique = []
+    for img in gallery["images"]:
+        if img.get("filename") in seen:
+            continue
+        seen.add(img.get("filename"))
+        unique.append(img)
+    gallery["images"] = unique
     shared.save_gallery(gallery)
     return jsonify({"success": True, "added": count_added, "fixed": count_fixed})
 
@@ -1013,11 +1366,6 @@ def handle_connect():
 @socketio.on("disconnect")
 def handle_disconnect():
     global shutdown_timer
-    if _is_headless():
-        # Container/server mode: browsers connect and disconnect freely;
-        # never shut the app down because a tab was closed.
-        print("Browser Tab Closed (headless mode: staying alive).")
-        return
     print("Browser Tab Closed! Shutting down in 3 seconds if not reconnected...")
 
     def shutdown_server():
@@ -1034,70 +1382,54 @@ def handle_start_worker(data):
     worker = data.get("worker")
     net_config = data.get("net_config", {})
 
-    # A fresh START must never leave a previous run of the same worker
-    # orphaned (double-clicking START used to create two live runs sharing
-    # one name; STOP then only reached the newest and the older one kept
-    # downloading forever). Signal any previous runs to wind down first.
-    try:
-        for evt in list(shared.STOP_EVENTS.get(worker, [])):
-            try:
-                evt.set()
-            except Exception:
-                pass
-    except Exception:
-        pass
+    def _safe_int(value, default=0):
+        try:
+            return int(str(value).strip() or default)
+        except (ValueError, TypeError):
+            return default
 
     tag = data.get("tag", data.get("category", "")).strip()
 
     if tag:
         try:
-            DatabaseManager.add_tag_history(worker, tag)
+            DatabaseManager.add_tag_history(worker, tag, data.get("rating", "") or "")
         except Exception as e:
             print("History Save Error:", e)
 
     if worker == "zero":
-        # Credentials: prefer what the Settings UI just sent; fall back to .env.
-        # (Previously env always overwrote the payload, so freshly typed
-        # logins never reached the worker.)
-        if not (net_config.get("zerochan_login") or "").strip():
-            net_config["zerochan_login"] = os.getenv("ZEROCHAN_LOGIN") or os.getenv("ZEROCHAN_USERNAME", "")
-        if not (net_config.get("zerochan_password") or "").strip():
-            net_config["zerochan_password"] = os.getenv("ZEROCHAN_PASSWORD", "")
-        try:
-            zero_limit = int(data.get("limit", 50) or 50)
-        except (TypeError, ValueError):
-            zero_limit = 50
-        threading.Thread(target=worker_zerochan, args=(data.get("tag", ""), zero_limit, net_config), daemon=True).start()
-    elif worker == "waifu": threading.Thread(target=worker_waifu, args=(data.get("tag", ""), int(data.get("limit", 30)), data.get("nsfw", False), net_config), daemon=True).start()
-    elif worker == "neko": threading.Thread(target=worker_nekos_best, args=(data.get("category", ""), int(data.get("limit", 20)), net_config), daemon=True).start()
-    elif worker == "safe": threading.Thread(target=worker_safebooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "rule34": threading.Thread(target=worker_rule34, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("method", "and"), data.get("sort_type", "id"), data.get("sort_order", "desc"), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "gelbooru": threading.Thread(target=worker_gelbooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "gsbooru": threading.Thread(target=worker_gsbooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "nekos_life": threading.Thread(target=worker_nekos_life, args=(data.get("category", ""), int(data.get("limit", 20)), net_config, data.get("format", "both")), daemon=True).start()
-    elif worker == "yande": threading.Thread(target=worker_yande, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), net_config), daemon=True).start()
-    elif worker == "kona": threading.Thread(target=worker_konachan, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "dan": threading.Thread(target=worker_danbooru, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "sankaku": threading.Thread(target=worker_sankaku, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
-    elif worker == "anime_dl": threading.Thread(target=worker_anime_dl, args=(data.get("tag", ""), int(data.get("limit", 50)), net_config), daemon=True).start()
+        net_config["zerochan_login"] = os.getenv("ZEROCHAN_LOGIN") or os.getenv("ZEROCHAN_USERNAME", "")
+        net_config["zerochan_password"] = os.getenv("ZEROCHAN_PASSWORD", "")
+        threading.Thread(target=worker_zerochan, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), net_config), daemon=True).start()
+    elif worker == "waifu": threading.Thread(target=worker_waifu, args=(data.get("tag", ""), _safe_int(data.get("limit", 30), 30), data.get("nsfw", False), net_config), daemon=True).start()
+    elif worker == "neko": threading.Thread(target=worker_nekos_best, args=(data.get("category", ""), _safe_int(data.get("limit", 20), 20), net_config), daemon=True).start()
+    elif worker == "safe": threading.Thread(target=worker_safebooru, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "rule34": threading.Thread(target=worker_rule34, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("method", "and"), data.get("sort_type", "id"), data.get("sort_order", "desc"), data.get("exclusions", []), net_config, data.get("exclude_ai", False)), daemon=True).start()
+    elif worker == "gelbooru": threading.Thread(target=worker_gelbooru, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "gsbooru": threading.Thread(target=worker_gsbooru, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "nekos_life": threading.Thread(target=worker_nekos_life, args=(data.get("category", ""), _safe_int(data.get("limit", 20), 20), net_config, data.get("format", "both")), daemon=True).start()
+    elif worker == "yande": threading.Thread(target=worker_yande, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), net_config), daemon=True).start()
+    elif worker == "kona": threading.Thread(target=worker_konachan, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "dan": threading.Thread(target=worker_danbooru, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "sankaku": threading.Thread(target=worker_sankaku, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
+    elif worker == "anime_dl": threading.Thread(target=worker_anime_dl, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), net_config), daemon=True).start()
     elif worker == "pinterest":
         net_config["pinterest_cookies"] = os.getenv("PINTEREST_COOKIES", "")
         net_config["pinterest_email"] = os.getenv("PINTEREST_EMAIL", "")
         net_config["pinterest_password"] = os.getenv("PINTEREST_PASSWORD", "")
-        threading.Thread(target=worker_pinterest, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("is_search", False), net_config, int(data.get("min_w", 0) or 0), int(data.get("min_h", 0) or 0)), daemon=True).start()
+        threading.Thread(target=worker_pinterest, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("is_search", False), net_config, _safe_int(data.get("min_w", 0), 0), _safe_int(data.get("min_h", 0), 0)), daemon=True).start()
     elif worker == "pixiv":
         net_config["pixiv_refresh_token"] = os.getenv("PIXIV_REFRESH_TOKEN", "")
-        threading.Thread(target=worker_pixiv, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
+        threading.Thread(target=worker_pixiv, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
     elif worker == "eshuushuu":
         from workers.eshuushuu import worker_eshuushuu
-        threading.Thread(target=worker_eshuushuu, args=(data.get("tag", ""), int(data.get("limit", 50)), [], data.get("user_id", ""), net_config), daemon=True).start()
+        threading.Thread(target=worker_eshuushuu, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), [], data.get("user_id", ""), net_config), daemon=True).start()
     elif worker == "nekosapi":
         from workers.nekosapi import worker_nekosapi
-        threading.Thread(target=worker_nekosapi, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", ""), net_config), daemon=True).start()
+        threading.Thread(target=worker_nekosapi, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), net_config), daemon=True).start()
     elif worker == "nekosia":
         try:
             from workers.nekosia import worker_nekosia
-            threading.Thread(target=worker_nekosia, args=(data.get("tag", ""), int(data.get("limit", 50)), data.get("rating", "safe"), net_config), daemon=True).start()
+            threading.Thread(target=worker_nekosia, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", "safe"), net_config), daemon=True).start()
         except ImportError:
             pass # در صورتی که بعدا خواستی فایل nekosia.py رو بسازی ارور نده
 
@@ -1138,6 +1470,15 @@ def startup_rescan():
             })
             by_fn[fn] = gallery["images"][-1]
             count += 1
+    # drop duplicate filenames (a download landing mid-scan can double-add)
+    seen = set()
+    unique = []
+    for img in gallery["images"]:
+        if img.get("filename") in seen:
+            continue
+        seen.add(img.get("filename"))
+        unique.append(img)
+    gallery["images"] = unique
     if count:
         print(f"Rescanned {count} new images into gallery")
 
@@ -1152,89 +1493,112 @@ def startup_rescan():
     if count or removed:
         shared.save_gallery(gallery)
 
-def _is_headless():
-    """True inside containers / CI / explicit server mode.
-
-    Desktop runs open a native pywebview window (no browser needed); the
-    bundled Flask server only listens on the 127.0.0.1 loopback. The Docker
-    image sets REMS_HEADLESS=1 and serves the same UI over HTTP instead.
-    """
-    if os.getenv("REMS_HEADLESS", "").strip() == "1":
-        return True
-    return any(a in ("--headless", "--server", "--no-window")
-               for a in sys.argv[1:])
-
-
-def _pick_loopback_port():
-    """An ephemeral 127.0.0.1 port, so desktop runs never clash with
-    anything else on the machine (and two copies can run side by side)."""
-    import socket as _socket
-    with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as s:
-        s.bind(("127.0.0.1", 0))
-        return int(s.getsockname()[1])
-
-
-@app.before_request
-def restrict_browser_access():
-    # Only allow requests from our native pywebview desktop app
-    user_agent = request.headers.get("User-Agent", "")
-    if "RemsDlDesktopApp" not in user_agent:
-        return "Web browser access is permanently disabled. Please use the desktop application.", 403
-
-def _run_flask_server(_host, _port):
-    socketio.run(app, host=_host, port=_port, debug=False,
-                 allow_unsafe_werkzeug=True)
-
-
 if __name__ == "__main__":
-    SAFE_TAGS_DB = DatabaseManager.load_safe_tags()
-    WAIFU_TAGS_DB, WAIFU_TAG_MAP = DatabaseManager._load_waifu_tags()
-    shared.WAIFU_TAG_MAP = WAIFU_TAG_MAP
-    YANDE_TAGS_DB = DatabaseManager.load_yande_tags()
-    KONA_TAGS_DB = DatabaseManager.load_kona_tags()
-    DAN_TAGS_DB = DatabaseManager.load_dan_tags()
-    SANKAKU_TAGS_DB = DatabaseManager.load_sankaku_tags()
-    GELBOORU_TAGS_DB = DatabaseManager.load_gelbooru_tags()
-    ANIME_TAGS_DB = DatabaseManager.load_anime_dl_tags()
-    ESHUUSHUU_TAGS_DB = DatabaseManager.load_eshuushuu_tags()
-    NEKOSAPI_TAGS_DB = DatabaseManager.load_nekosapi_tags()
-    NEKOSIA_TAGS_DB = DatabaseManager.load_nekosia_tags()
-    GSBOORU_TAGS_DB = DatabaseManager.load_gsbooru_tags()
-    startup_rescan()
-    if _is_headless():
-        # Container / server mode: fixed port, reachable from outside the
-        # container. Stays alive across browser connects/disconnects.
-        _headless_port = int(os.getenv("PORT", "5000"))
-        print(f"Starting Rems Dl (headless server mode) on 0.0.0.0:{_headless_port} ...")
-        _run_flask_server("0.0.0.0", _headless_port)
-    else:
-        port = _pick_loopback_port()
-        url = f"http://127.0.0.1:{port}"
-        print(f"Starting Rems Dl desktop app ({url} on internal loopback) ...")
-        # Standalone desktop app: Flask/SocketIO runs in a background daemon
-        # thread while pywebview owns the main thread as a native GUI window.
-        # pywebview handles OS-level webview dependencies natively on both
-        # Windows (WebView2) and Linux (WebKitGTK), so no manual browser needed.
-        try:
-            import webview as _pywebview
-            _has_webview = True
-        except ImportError:
-            print("CRITICAL ERROR: pywebview is not installed.")
-            print("This application requires pywebview to run as a native desktop app.")
-            print("Please run: pip install pywebview")
-            sys.exit(1)
+    def _pick_loopback_port():
+        import socket as _socket
+        with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            return int(s.getsockname()[1])
 
-        server_thread = threading.Thread(
-            target=_run_flask_server, args=("127.0.0.1", port), daemon=True)
-        server_thread.start()
-        # Give the socket server a moment to bind before the window loads it.
-        time.sleep(1.0)
+    # Warm autocomplete DBs in the background so the app opens instantly
+    def _warm_tag_dbs():
+        global SAFE_TAGS_DB, WAIFU_TAGS_DB, WAIFU_TAG_MAP, YANDE_TAGS_DB
+        global KONA_TAGS_DB, DAN_TAGS_DB, SANKAKU_TAGS_DB, GELBOORU_TAGS_DB
+        global ANIME_TAGS_DB, ESHUUSHUU_TAGS_DB, NEKOSAPI_TAGS_DB, NEKOSIA_TAGS_DB, GSBOORU_TAGS_DB
+        SAFE_TAGS_DB = DatabaseManager.load_safe_tags()
+        WAIFU_TAGS_DB, WAIFU_TAG_MAP = DatabaseManager.load_waifu_tags()
+        shared.WAIFU_TAG_MAP = WAIFU_TAG_MAP
+        DAN_TAGS_DB = DatabaseManager.load_dan_tags()
+        YANDE_TAGS_DB = DatabaseManager.load_yande_tags()
+        KONA_TAGS_DB = DatabaseManager.load_kona_tags()
+        SANKAKU_TAGS_DB = DatabaseManager.load_sankaku_tags()
+        GELBOORU_TAGS_DB = DatabaseManager.load_gelbooru_tags()
+        ANIME_TAGS_DB = DatabaseManager.load_anime_dl_tags()
+        ESHUUSHUU_TAGS_DB = DatabaseManager.load_eshuushuu_tags()
+        NEKOSAPI_TAGS_DB = DatabaseManager.load_nekosapi_tags()
+        NEKOSIA_TAGS_DB = DatabaseManager.load_nekosia_tags()
+        GSBOORU_TAGS_DB = DatabaseManager.load_gsbooru_tags()
+
+    threading.Thread(target=_warm_tag_dbs, daemon=True).start()
+    threading.Thread(target=startup_rescan, daemon=True).start()
+
+    try:
+        import webview as _pywebview
+    except ImportError:
+        print("CRITICAL ERROR: pywebview is not installed.")
+        print("This application requires pywebview to run as a native desktop app.")
+        print("Please run: pip install pywebview")
+        sys.exit(1)
+
+    port = _pick_loopback_port()
+    url = f"http://127.0.0.1:{port}"
+    print(f"Starting Rems Dl desktop app ({url} on internal loopback) ...")
+
+    def start_server():
+        socketio.run(app, host="127.0.0.1", port=port, debug=False, allow_unsafe_werkzeug=True)
+
+    server_thread = threading.Thread(target=start_server, daemon=True)
+    server_thread.start()
+    time.sleep(1.0)
+
+    def _shutdown_now():
         try:
-            _pywebview.create_window("Rems Dl", url, width=1280, height=800)
-            _pywebview.start(user_agent="RemsDlDesktopApp/1.0")
-        except Exception as e:
-            print(f"CRITICAL ERROR: pywebview failed to start ({e})")
-            sys.exit(1)
-        
-        # Window closed -> terminate (the disconnect auto-shutdown also fires).
+            for events in list(shared.STOP_EVENTS.values()):
+                for ev in events:
+                    try:
+                        ev.set()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        try:
+            shared.flush_gallery()
+        except Exception:
+            pass
         os._exit(0)
+
+    try:
+        if sys.platform == "win32":
+            icon_candidates = [
+                os.path.join(BASE_DIR, "web", "icons", "icon.ico"),
+                os.path.join(BASE_DIR, "icon", "icon.ico"),
+            ]
+        elif sys.platform == "darwin":
+            icon_candidates = [
+                os.path.join(BASE_DIR, "web", "icons", "icon.icns"),
+                os.path.join(BASE_DIR, "icon", "icon.icns"),
+            ]
+        else:
+            icon_candidates = [
+                os.path.join(BASE_DIR, "web", "icons", "icon.png"),
+                os.path.join(BASE_DIR, "icon", "icon.png"),
+            ]
+        icon_path = next((p for p in icon_candidates if os.path.isfile(p)), None)
+
+        _win = _pywebview.create_window(
+            "Rems Dl",
+            url,
+            width=1400,
+            height=900
+        )
+        try:
+            _win.events.closed += _shutdown_now
+        except Exception:
+            pass
+
+        try:
+            _pywebview.start(
+                user_agent="RemsDlDesktopApp/1.0",
+                gui="gtk" if sys.platform == "linux" else "edgechromium",
+                icon=icon_path
+            )
+        except Exception as _icon_e:
+            # If the OS windowing system rejects the icon format, start cleanly without the custom icon
+            _pywebview.start(
+                user_agent="RemsDlDesktopApp/1.0",
+                gui="gtk" if sys.platform == "linux" else "edgechromium"
+            )
+        _shutdown_now()
+    except Exception as e:
+        print(f"CRITICAL ERROR: pywebview failed to start ({e})")
+        _shutdown_now()
