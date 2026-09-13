@@ -1174,6 +1174,13 @@ def _pick_loopback_port():
         return int(s.getsockname()[1])
 
 
+@app.before_request
+def restrict_browser_access():
+    # Only allow requests from our native pywebview desktop app
+    user_agent = request.headers.get("User-Agent", "")
+    if "RemsDlDesktopApp" not in user_agent:
+        return "Web browser access is permanently disabled. Please use the desktop application.", 403
+
 def _run_flask_server(_host, _port):
     socketio.run(app, host=_host, port=_port, debug=False,
                  allow_unsafe_werkzeug=True)
@@ -1212,29 +1219,22 @@ if __name__ == "__main__":
             import webview as _pywebview
             _has_webview = True
         except ImportError:
-            _has_webview = False
-            _pywebview = None
+            print("CRITICAL ERROR: pywebview is not installed.")
+            print("This application requires pywebview to run as a native desktop app.")
+            print("Please run: pip install pywebview")
+            sys.exit(1)
 
-        if _has_webview:
-            server_thread = threading.Thread(
-                target=_run_flask_server, args=("127.0.0.1", port), daemon=True)
-            server_thread.start()
-            # Give the socket server a moment to bind before the window loads it.
-            time.sleep(1.0)
-            try:
-                _pywebview.create_window("Rems Dl", url, width=1280, height=800)
-                _pywebview.start()
-            except Exception as e:
-                print(f"pywebview failed ({e}); falling back to blocking server mode.")
-                _run_flask_server("127.0.0.1", port)
-            # Window closed -> terminate (the disconnect auto-shutdown also fires).
-            os._exit(0)
-        else:
-            print("pywebview not installed; running in browser mode. "
-                  "Install requirements to get the standalone desktop window.")
-            try:
-                import webbrowser as _wb
-                _wb.open(url)
-            except Exception:
-                pass
-            _run_flask_server("127.0.0.1", port)
+        server_thread = threading.Thread(
+            target=_run_flask_server, args=("127.0.0.1", port), daemon=True)
+        server_thread.start()
+        # Give the socket server a moment to bind before the window loads it.
+        time.sleep(1.0)
+        try:
+            _pywebview.create_window("Rems Dl", url, width=1280, height=800)
+            _pywebview.start(user_agent="RemsDlDesktopApp/1.0")
+        except Exception as e:
+            print(f"CRITICAL ERROR: pywebview failed to start ({e})")
+            sys.exit(1)
+        
+        # Window closed -> terminate (the disconnect auto-shutdown also fires).
+        os._exit(0)
