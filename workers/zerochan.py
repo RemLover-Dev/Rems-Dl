@@ -26,6 +26,95 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
+class _ZerochanSubtagParser(HTMLParser):
+    """Parse sub-tag browser boxes from a Zerochan tag page.
+
+    Targets ``<section class="carousel thumbs"><ul><li>`` entries:
+        <li><a href="/Reze+%28Default+Outfit%29" title="235 entries">
+        <div class="thumb" data-src="..."></div>
+        <p class="outfit">Default Outfit</p></a><i>235</i></li>
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.subtags = []
+        self._in_carousel = False
+        self._current = None
+        self._in_name = False
+        self._in_count = False
+
+    def handle_starttag(self, tag, attrs):
+        attrs_dict = dict(attrs)
+        if tag == "section" and "carousel" in attrs_dict.get("class", "").split():
+            self._in_carousel = True
+            return
+        if not self._in_carousel:
+            return
+        if tag == "li":
+            self._current = {"name": "", "short": "", "url": "",
+                             "count": 0, "thumb": "", "kind": ""}
+        elif tag == "a" and self._current is not None and not self._current["url"]:
+            href = attrs_dict.get("href", "")
+            if href.startswith("/"):
+                self._current["url"] = "https://www.zerochan.net" + href
+                self._current["name"] = urllib.parse.unquote_plus(
+                    href.rsplit("/", 1)[-1])
+            title = attrs_dict.get("title", "")
+            m = re.search(r"(\d+)", title)
+            if m:
+                self._current["count"] = int(m.group(1))
+        elif tag == "div" and self._current is not None:
+            if "thumb" in attrs_dict.get("class", "").split():
+                self._current["thumb"] = attrs_dict.get("data-src", "")
+        elif tag == "p" and self._current is not None:
+            self._current["kind"] = attrs_dict.get("class", "")
+            self._in_name = True
+        elif tag == "i" and self._current is not None:
+            self._in_count = True
+
+    def handle_data(self, data):
+        if self._current is None:
+            return
+        if self._in_name:
+            self._current["short"] += data.strip()
+        elif self._in_count:
+            m = re.search(r"(\d+)", data)
+            if m:
+                self._current["count"] = int(m.group(1))
+
+    def handle_endtag(self, tag):
+        if tag == "section" and self._in_carousel:
+            self._in_carousel = False
+        if not self._in_carousel and tag != "li":
+            self._in_name = self._in_count = False
+            return
+        if tag == "p":
+            self._in_name = False
+        elif tag == "i":
+            self._in_count = False
+        elif tag == "li" and self._current is not None:
+            if self._current["url"]:
+                self.subtags.append(self._current)
+            self._current = None
+            self._in_name = self._in_count = False
+
+
+def parse_zerochan_subtags(html):
+    """Extract sub-tag boxes from raw Zerochan tag-page HTML.
+
+    Returns a list of dicts:
+        [{"name": "Reze (Default Outfit)", "short": "Default Outfit",
+          "url": "https://www.zerochan.net/Reze+%28Default+Outfit%29",
+          "count": 235, "thumb": "https://...", "kind": "outfit"}, ...]
+    """
+    parser = _ZerochanSubtagParser()
+    try:
+        parser.feed(html)
+    except Exception:
+        pass
+    return parser.subtags
+
+
 class _ZerochanTagParser(HTMLParser):
     """Parse categorized tags from Zerochan post HTML."""
 
