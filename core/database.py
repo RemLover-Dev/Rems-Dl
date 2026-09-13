@@ -46,17 +46,20 @@ class DatabaseManager:
         DatabaseManager.save_json(TAG_HISTORY_FILE, data)
 
     @staticmethod
-    def add_tag_history(site, tag):
+    def add_tag_history(site, tag, rating=""):
         hist = DatabaseManager.load_tag_history()
-        entry = {"site": site, "tag": tag}
+        entry = {"site": site, "tag": tag, "rating": rating or ""}
         if entry not in hist:
             hist.insert(0, entry)
             DatabaseManager.save_tag_history(hist)
 
     @staticmethod
-    def remove_tag_history(site, tag):
+    def remove_tag_history(site, tag, rating=None):
         hist = DatabaseManager.load_tag_history()
-        hist = [x for x in hist if not (x["site"] == site and x["tag"] == tag)]
+        if rating is None:
+            hist = [x for x in hist if not (x["site"] == site and x["tag"] == tag)]
+        else:
+            hist = [x for x in hist if not (x["site"] == site and x["tag"] == tag and (x.get("rating") or "") == rating)]
         DatabaseManager.save_tag_history(hist)
 
     @staticmethod
@@ -83,10 +86,10 @@ class DatabaseManager:
         DatabaseManager.save_json(IMAGE_HISTORY_FILE, data)
 
     @staticmethod
-    def add_image_history(worker_name, filename, tags_list, artist_list, filepath=None, characters=None, copyrights=None, metadata_tags=None):
+    def add_image_history(worker_name, filename, tags_list, artist_list, filepath=None, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
         from core.shared import tags_dict_from_lists
         hist = DatabaseManager.load_image_history()
-        tags_dict = tags_dict_from_lists(tags_list, artist_list, characters, copyrights, metadata_tags)
+        tags_dict = tags_dict_from_lists(tags_list, artist_list, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
         entry = {
             "site": worker_name,
             "filename": filename,
@@ -310,7 +313,7 @@ class DatabaseManager:
             return []
 
     @staticmethod
-    def _load_waifu_tags():
+    def load_waifu_tags():
         tags_path = os.path.join(DATABASE_DIR, "waifu.im_tags.json")
         try:
             with open(tags_path, "r", encoding="utf-8") as f:
@@ -319,6 +322,10 @@ class DatabaseManager:
             return tags_db, tag_map
         except Exception:
             return [], {}
+
+    @staticmethod
+    def _load_waifu_tags():
+        return DatabaseManager.load_waifu_tags()
         return [], {}
 
     @staticmethod
@@ -425,7 +432,10 @@ class SettingsManager:
             "PINTEREST_COOKIES": data.get("pinterest_cookies", ""),
             "PINTEREST_EMAIL": data.get("pinterest_email", ""),
             "PINTEREST_PASSWORD": data.get("pinterest_password", ""),
-            "PIXIV_REFRESH_TOKEN": data.get("pixiv_refresh_token", "")
+            "PIXIV_REFRESH_TOKEN": data.get("pixiv_refresh_token", ""),
+            "PIXIV_COOKIE": data.get("pixiv_cookie", ""),
+            "DANBOORU_LOGIN": data.get("danbooru_login", ""),
+            "DANBOORU_API_KEY": data.get("danbooru_api_key", "")
         }
         self._upsert_env_keys(keys_to_save)
         for k, v in keys_to_save.items():
@@ -454,5 +464,8 @@ class SettingsManager:
             "pinterest_cookies": config.get("PINTEREST_COOKIES", ""),
             "pinterest_email": config.get("PINTEREST_EMAIL", ""),
             "pinterest_password": config.get("PINTEREST_PASSWORD", ""),
-            "pixiv_refresh_token": config.get("PIXIV_REFRESH_TOKEN", "")
+            "pixiv_refresh_token": config.get("PIXIV_REFRESH_TOKEN", ""),
+            "pixiv_cookie": config.get("PIXIV_COOKIE", ""),
+            "danbooru_login": config.get("DANBOORU_LOGIN", ""),
+            "danbooru_api_key": config.get("DANBOORU_API_KEY", "")
         }
