@@ -53,6 +53,23 @@ if os.path.isdir(os.path.join(BASE_DIR, LEGACY_DOWNLOAD_DIR_NAME)) and not os.pa
 
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
+# Limit Edge WebView2 memory consumption to keep total app RAM strictly under 250MB - 350MB
+os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = (
+    "--disable-background-networking "
+    "--disable-component-update "
+    "--disable-domain-reliability "
+    "--disable-sync "
+    "--disable-features=TranslateUI "
+    "--disable-renderer-backgrounding "
+    "--disable-ipc-flooding-protection "
+    "--metrics-recording-only "
+    "--no-first-run "
+    "--no-default-browser-check "
+    "--js-flags=--max-old-space-size=256 "
+    "--renderer-process-limit=2 "
+)
+
+
 # ponytail: a dead system proxy must never blackhole the local UI server
 for _k in ("no_proxy", "NO_PROXY"):
     _have = {h.strip() for h in os.environ.get(_k, "").split(",") if h.strip()}
@@ -127,6 +144,10 @@ shared.log_callback = log_msg
 def socketio_tag_handler(worker_name, filename, tags_list, artist_list, filepath=None, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
     try:
         DatabaseManager.add_image_history(worker_name, filename, tags_list, artist_list, filepath, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
+        # Learn top tags from successfully downloaded images into local smart cache
+        for t in (tags_list or [])[:10]:
+            if isinstance(t, str) and len(t.strip()) >= 2:
+                DatabaseManager.add_learned_tag(worker_name, t.strip())
         socketio.emit("update_history")
     except Exception as e:
         print("Image Tag Save Error:", e)
@@ -139,6 +160,33 @@ def socketio_emit(event, data):
     except Exception: print(f"[SOCKETIO] {event}: {data}")
 
 shared.emit_callback = socketio_emit
+
+def _merge_learned_and_online(site, query, online_tags, limit=50):
+    """Combine user's learned/favorite tags with live online suggestions."""
+    learned = DatabaseManager.get_learned_suggestions(site, query, limit=limit)
+    merged = []
+    seen = set()
+    for t in learned:
+        tl = str(t).lower()
+        if tl not in seen:
+            seen.add(tl)
+            merged.append(t)
+    for t in online_tags:
+        if isinstance(t, str):
+            tl = t.lower()
+            if tl not in seen:
+                seen.add(tl)
+                merged.append(t)
+        elif isinstance(t, dict):
+            # For complex dicts (like e-shuushuu or anime-pictures)
+            name = t.get("name") or t.get("title") or t.get("tag") or ""
+            if name:
+                tl = str(name).lower()
+                if tl not in seen:
+                    seen.add(tl)
+                    merged.append(t)
+    return merged[:limit]
+
 
 
 def _live_tag_suggest(session, url, timeout=5):
@@ -398,8 +446,10 @@ def _suggest(db, query, limit=50):
 
 @app.route("/api/tags/zerochan", methods=["POST"])
 def get_zerochan_suggestions():
-    data = request.json
-    query = data.get("query", "")
+    data = request.json or {}
+    query = (data.get("query", "") or "").strip()
+    if len(query) < 2: return jsonify(_merge_learned_and_online("zero", query, []))
+    cleaned = []
     try:
         session = get_session("zero", data.get("net_config", {}))
         session.headers.update({"X-Requested-With": "XMLHttpRequest", "Referer": "https://www.zerochan.net/"})
@@ -409,10 +459,9 @@ def get_zerochan_suggestions():
                 if "{" in resp.text or "[" in resp.text:
                     sugs = resp.json()
                 else:
-                    sugs = [s.strip() for s in resp.text.split('\n') if s.strip()]
+                    sugs = [s.strip() for s in resp.text.splitlines() if s.strip()]
             except Exception:
-                sugs = [s.strip() for s in resp.text.split('\n') if s.strip()]
-            cleaned = []
+                sugs = [s.strip() for s in resp.text.splitlines() if s.strip()]
             for s in sugs:
                 if isinstance(s, dict):
                     for key in ("value", "name", "tag", "title", "label"):
@@ -423,22 +472,21 @@ def get_zerochan_suggestions():
                 elif isinstance(s, str) and s.strip():
                     cleaned.append(s.split('|')[0].strip())
             cleaned = [c for c in dict.fromkeys(cleaned) if c]
-            if cleaned:
-                return jsonify(cleaned[:50])
     except Exception: pass
-    return jsonify([])
+    return jsonify(_merge_learned_and_online("zero", query, cleaned))
 
 @app.route("/api/tags/safe", methods=["POST"])
 def get_safe_suggestions():
     data = request.json or {}
     query = (data.get("query", "") or "").lower().strip().replace(" ", "_")
-    if len(query) < 2: return jsonify([])
+    if len(query) < 2: return jsonify(_merge_learned_and_online("safe", query, []))
+    names = []
     try:
         session = get_session("safe", data.get("net_config", {}))
         live = _live_tag_suggest(
             session,
             f"https://safebooru.org/autocomplete.php?q={urllib.parse.quote(query)}")
-        if live: return jsonify(live)
+        if live: return jsonify(_merge_learned_and_online("safe", query, live))
     except Exception: pass
     try:
         session = get_session("safe", data.get("net_config", {}))
@@ -448,7 +496,6 @@ def get_safe_suggestions():
                                    "order": "DESC", "limit": 50, "json": 1},
                            timeout=5)
         if resp.status_code == 200:
-            names = []
             try:
                 payload = resp.json()
                 items = payload.get("tag", payload) if isinstance(payload, dict) else payload
@@ -463,7 +510,6 @@ def get_safe_suggestions():
                     scored.append((html.unescape(t["name"]), c))
                 names = [n for n, _ in sorted(scored, key=lambda nc: -nc[1])]
             except Exception:
-                # ponytail: safebooru answers tag queries as XML regardless of json=1
                 import xml.etree.ElementTree as _et
                 try:
                     root = _et.fromstring(resp.text)
@@ -473,16 +519,31 @@ def get_safe_suggestions():
                 except Exception:
                     names = []
             names = [n for n in names if n.lower().startswith(query)]
-            if names: return jsonify(names[:20])
     except Exception: pass
-    if not SAFE_TAGS_DB: return jsonify([])
-    return jsonify(_suggest(SAFE_TAGS_DB, query))
+    return jsonify(_merge_learned_and_online("safe", query, names))
 
 @app.route("/api/tags/rule34", methods=["POST"])
 def get_rule34_suggestions():
-    data = request.json
-    query = data.get("query", "")
-    if len(query) < 2: return jsonify([])
+    data = request.json or {}
+    query = (data.get("query", "") or "").strip()
+    if len(query) < 2: return jsonify(_merge_learned_and_online("rule34", query, []))
+    try:
+        session = get_session("rule34", data.get("net_config", {}))
+        url = f"https://api.rule34.xxx/autocomplete.php?q={urllib.parse.quote(query)}"
+        resp = session.get(url, timeout=3)
+        if resp.status_code == 200:
+            live = [item.get("value") for item in resp.json() if isinstance(item, dict) and "value" in item]
+            if live: return jsonify(_merge_learned_and_online("rule34", query, live))
+    except Exception: pass
+    try:
+        session = get_session("rule34", data.get("net_config", {}))
+        url = f"https://gelbooru.com/index.php?page=autocomplete2&term={urllib.parse.quote(query)}&type=tag_query&limit=20"
+        resp = session.get(url, timeout=5)
+        if resp.status_code == 200:
+            live = [item.get("value") for item in resp.json() if isinstance(item, dict) and "value" in item]
+            if live: return jsonify(_merge_learned_and_online("rule34", query, live))
+    except Exception: pass
+    return jsonify(_merge_learned_and_online("rule34", query, []))
     try:
         session = get_session("rule34", data.get("net_config", {}))
         url = f"https://api.rule34.xxx/autocomplete.php?q={urllib.parse.quote(query)}"
@@ -552,7 +613,8 @@ def get_anime_dl_subtags():
 def get_yande_suggestions():
     data = request.json or {}
     query = (data.get("query", "") or "").lower().strip()
-    if len(query) < 2: return jsonify([])
+    if len(query) < 2: return jsonify(_merge_learned_and_online("yande", query, []))
+    names = []
     try:
         session = get_session("yande", data.get("net_config", {}))
         resp = session.get("https://yande.re/tag.json",
@@ -564,25 +626,22 @@ def get_yande_suggestions():
             names = [t.get("name") for t in items
                      if isinstance(t, dict) and t.get("name")
                      and str(t["name"]).lower().startswith(query)]
-            if names: return jsonify(names)
     except Exception: pass
-    if not YANDE_TAGS_DB: return jsonify([])
-    return jsonify(_suggest(YANDE_TAGS_DB, query))
+    return jsonify(_merge_learned_and_online("yande", query, names))
 
 @app.route("/api/tags/kona", methods=["POST"])
 def get_kona_suggestions():
     data = request.json or {}
     query = (data.get("query", "") or "").lower().strip()
-    if len(query) < 2: return jsonify([])
+    if len(query) < 2: return jsonify(_merge_learned_and_online("kona", query, []))
+    live = []
     try:
         session = get_session("kona", data.get("net_config", {}))
         live = _live_tag_suggest(
             session,
             f"https://konachan.com/tag.json?name={urllib.parse.quote(query)}*&limit=50&order=count")
-        if live: return jsonify(live)
     except Exception: pass
-    if not KONA_TAGS_DB: return jsonify([])
-    return jsonify(_suggest(KONA_TAGS_DB, query))
+    return jsonify(_merge_learned_and_online("kona", query, live))
 
 @app.route("/api/tags/dan/subtags", methods=["POST"])
 def get_dan_subtags():
@@ -620,7 +679,26 @@ def get_dan_subtags():
 def get_dan_suggestions():
     data = request.json or {}
     query = (data.get("query", "") or "").lower().strip()
-    if len(query) < 2: return jsonify([])
+    if len(query) < 2: return jsonify(_merge_learned_and_online("dan", query, []))
+    names = []
+    try:
+        session = get_session("dan", data.get("net_config", {}))
+        auth = None
+        _login, _key = os.environ.get("DANBOORU_LOGIN", ""), os.environ.get("DANBOORU_API_KEY", "")
+        if _login and _key:
+            auth = (_login, _key)
+        resp = session.get("https://danbooru.donmai.us/autocomplete.json",
+                           params={"search[query]": query + "*", "search[type]": "tag_query"},
+                           auth=auth, timeout=5)
+        if resp.status_code == 200:
+            for t in resp.json():
+                if isinstance(t, dict) and t.get("value"):
+                    names.append(html.unescape(t["value"]))
+                elif isinstance(t, str) and t.strip():
+                    names.append(html.unescape(t.strip()))
+            names = list(dict.fromkeys(names))[:20]
+    except Exception: pass
+    return jsonify(_merge_learned_and_online("dan", query, names))
     try:
         session = get_session("dan", data.get("net_config", {}))
         # help:api — authenticated requests get higher limits; key lives in .env (git-ignored)
@@ -647,9 +725,8 @@ def get_dan_suggestions():
 def get_sankaku_suggestions():
     data = request.json or {}
     query = (data.get("query", "") or "").lower().strip()
-    if len(query) < 2: return jsonify([])
-    # ponytail: the site's own autocomplete (per HAR capture) serves real
-    # tags with counts; the local dump is fragment-polluted, keep it as fallback
+    if len(query) < 2: return jsonify(_merge_learned_and_online("sankaku", query, []))
+    names = []
     try:
         session = get_session("sankaku", data.get("net_config", {}))
         resp = session.get("https://sankakuapi.com/tags/autosuggestCreating",
@@ -662,12 +739,15 @@ def get_sankaku_suggestions():
             names = [t.get("tagName") or t.get("name") for t in items
                      if isinstance(t, dict) and (t.get("tagName") or t.get("name"))]
             names = [n for n in dict.fromkeys(names) if not n.endswith(",")]
-            if names: return jsonify(names[:50])
-    except Exception:
-        pass
-    local = _suggest(SANKAKU_TAGS_DB, query) if SANKAKU_TAGS_DB else []
-    if local:
-        return jsonify(local)
+    except Exception: pass
+    if not names:
+        try:
+            session = get_session("sankaku", data.get("net_config", {}))
+            names = _live_tag_suggest(
+                session,
+                f"https://capi-v2.sankakucomplex.com/autocomplete?tag={urllib.parse.quote(query)}")
+        except Exception: pass
+    return jsonify(_merge_learned_and_online("sankaku", query, names))
     try:
         session = get_session("sankaku", data.get("net_config", {}))
         live = _live_tag_suggest(
@@ -683,7 +763,8 @@ def get_sankaku_suggestions():
 def get_gelbooru_suggestions():
     data = request.json or {}
     query = (data.get("query", "") or "").lower().strip().replace(" ", "_")
-    if len(query) < 2: return jsonify([])
+    if len(query) < 2: return jsonify(_merge_learned_and_online("gelbooru", query, []))
+    names = []
     try:
         session = get_session("gelbooru", data.get("net_config", {}))
         params = {"page": "dapi", "s": "tag", "q": "index",
@@ -699,16 +780,15 @@ def get_gelbooru_suggestions():
             data = resp.json()
             tags = data.get("tag", data) if isinstance(data, dict) else data
             names = [html.unescape(t.get("name")) for t in tags if isinstance(t, dict) and t.get("name")]
-            if names: return jsonify(names)
     except Exception: pass
-    if not GELBOORU_TAGS_DB: return jsonify([])
-    return jsonify([t for t in GELBOORU_TAGS_DB if t.lower().startswith(query)][:50])
+    return jsonify(_merge_learned_and_online("gelbooru", query, names))
 
 @app.route("/api/tags/anime_dl", methods=["POST"])
 def get_anime_dl_suggestions():
     data = request.json or {}
     query = (data.get("query", "") or "").strip()
-    if len(query) < 1: return jsonify([])
+    if len(query) < 1: return jsonify(_merge_learned_and_online("anime_dl", query, []))
+    names = []
     try:
         from curl_cffi import requests as curl_requests
         net = data.get("net_config", {}) or {}
@@ -730,13 +810,10 @@ def get_anime_dl_suggestions():
                     c = 0
                 scored.append((t["t"], c))
             ql = query.lower()
-            # ponytail: prefix matches first, then substring hits — each by count
             names = ([n for n, _ in sorted(((n, c) for n, c in scored if n.lower().startswith(ql)), key=lambda nc: -nc[1])]
                      + [n for n, _ in sorted(((n, c) for n, c in scored if not n.lower().startswith(ql)), key=lambda nc: -nc[1])])
-            if names: return jsonify(names[:50])
     except Exception: pass
-    if not ANIME_TAGS_DB: return jsonify([])
-    return jsonify([t for t in ANIME_TAGS_DB if t.startswith(query.lower())][:50])
+    return jsonify(_merge_learned_and_online("anime_dl", query, names))
 
 @app.route("/api/tags/eshuushuu", methods=["POST"])
 def get_eshuushuu_suggestions():
@@ -860,7 +937,8 @@ def get_nekosia_suggestions():
 def get_gsbooru_suggestions():
     data = request.json or {}
     query = (data.get("query", "") or "").lower().strip()
-    if len(query) < 2: return jsonify([])
+    if len(query) < 2: return jsonify(_merge_learned_and_online("gsbooru", query, []))
+    names = []
     try:
         session = get_session("gsbooru", data.get("net_config", {}))
         resp = session.get("https://gsbooru.org/api/tags/tag-suggestions",
@@ -869,11 +947,8 @@ def get_gsbooru_suggestions():
             items = resp.json().get("tags", [])
             names = [t.get("name") for t in items
                      if isinstance(t, dict) and t.get("name")]
-            if names: return jsonify(names[:50])
-    except Exception:
-        pass
-    local = _suggest(GSBOORU_TAGS_DB, query) if GSBOORU_TAGS_DB else []
-    return jsonify(local)
+    except Exception: pass
+    return jsonify(_merge_learned_and_online("gsbooru", query, names))
 
 # --- TAG HISTORY & FAVORITES API ---
 @app.route("/api/history", methods=["GET"])
@@ -1393,6 +1468,10 @@ def handle_start_worker(data):
     if tag:
         try:
             DatabaseManager.add_tag_history(worker, tag, data.get("rating", "") or "")
+            # Learn searched tags into local smart cache
+            for single_tag in tag.replace(",", " ").split():
+                if len(single_tag.strip()) >= 2:
+                    DatabaseManager.add_learned_tag(worker, single_tag.strip())
         except Exception as e:
             print("History Save Error:", e)
 
@@ -1500,24 +1579,14 @@ if __name__ == "__main__":
             s.bind(("127.0.0.1", 0))
             return int(s.getsockname()[1])
 
-    # Warm autocomplete DBs in the background so the app opens instantly
+    # Warm only lightweight waifu config (no giant tag databases loaded into memory)
     def _warm_tag_dbs():
-        global SAFE_TAGS_DB, WAIFU_TAGS_DB, WAIFU_TAG_MAP, YANDE_TAGS_DB
-        global KONA_TAGS_DB, DAN_TAGS_DB, SANKAKU_TAGS_DB, GELBOORU_TAGS_DB
-        global ANIME_TAGS_DB, ESHUUSHUU_TAGS_DB, NEKOSAPI_TAGS_DB, NEKOSIA_TAGS_DB, GSBOORU_TAGS_DB
-        SAFE_TAGS_DB = DatabaseManager.load_safe_tags()
-        WAIFU_TAGS_DB, WAIFU_TAG_MAP = DatabaseManager.load_waifu_tags()
-        shared.WAIFU_TAG_MAP = WAIFU_TAG_MAP
-        DAN_TAGS_DB = DatabaseManager.load_dan_tags()
-        YANDE_TAGS_DB = DatabaseManager.load_yande_tags()
-        KONA_TAGS_DB = DatabaseManager.load_kona_tags()
-        SANKAKU_TAGS_DB = DatabaseManager.load_sankaku_tags()
-        GELBOORU_TAGS_DB = DatabaseManager.load_gelbooru_tags()
-        ANIME_TAGS_DB = DatabaseManager.load_anime_dl_tags()
-        ESHUUSHUU_TAGS_DB = DatabaseManager.load_eshuushuu_tags()
-        NEKOSAPI_TAGS_DB = DatabaseManager.load_nekosapi_tags()
-        NEKOSIA_TAGS_DB = DatabaseManager.load_nekosia_tags()
-        GSBOORU_TAGS_DB = DatabaseManager.load_gsbooru_tags()
+        global WAIFU_TAGS_DB, WAIFU_TAG_MAP
+        try:
+            WAIFU_TAGS_DB, WAIFU_TAG_MAP = DatabaseManager.load_waifu_tags()
+            shared.WAIFU_TAG_MAP = WAIFU_TAG_MAP
+        except Exception:
+            pass
 
     threading.Thread(target=_warm_tag_dbs, daemon=True).start()
     threading.Thread(target=startup_rescan, daemon=True).start()
