@@ -1,5 +1,6 @@
 import os, re
 import asyncio
+import aiohttp
 from workers import BaseWorker
 
 
@@ -15,6 +16,9 @@ class DanbooruWorker(BaseWorker):
             self.api_tag = f"{self.original_tag} {self.rating}".strip()
 
         self.rating_map = {"g": "Safe", "s": "Sensitive", "q": "Questionable", "e": "NSFW"}
+        self.dan_login = os.getenv("DANBOORU_LOGIN", "")
+        self.dan_api_key = os.getenv("DANBOORU_API_KEY", "")
+        self._auth = aiohttp.BasicAuth(self.dan_login, self.dan_api_key) if (self.dan_login and self.dan_api_key) else None
         self.video_exts = {"mp4", "webm"}
 
         FORMAT_WORDS = {"video", "image"}
@@ -32,8 +36,33 @@ class DanbooruWorker(BaseWorker):
     async def fetch_posts(self):
         await self.scraper_task()
 
+    async def _log_auth_status(self):
+        # ponytail: one cheap call so the log states the real tier —
+        # Member accounts keep the 2-tag cap, so "authenticated" alone misleads
+        try:
+            async with self.session.get(
+                    "https://danbooru.donmai.us/profile.json",
+                    auth=self._auth,
+                    timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status != 200:
+                    self.log(f"Authenticated as {self.dan_login}")
+                    return
+                prof = await resp.json()
+                name = prof.get("name", self.dan_login)
+                tier = prof.get("level_string", "")
+                if tier.lower() == "member":
+                    self.log(f"Authenticated as {name} ({tier} — 2-tag search limit still applies; higher tiers raise it)")
+                elif tier:
+                    self.log(f"Authenticated as {name} ({tier})")
+                else:
+                    self.log(f"Authenticated as {name}")
+        except Exception:
+            self.log(f"Authenticated as {self.dan_login}")
+
     async def scraper_task(self):
-        self.log(f"Initializing worker for tag: '{self.api_tag}'")
+        self.log(f"Initializing worker for tag: '{self.original_tag}'" + (f" (rating: {self.rating_map.get(self.rating.split(':')[-1], '')})" if self.rating else ""))
+        if self._auth:
+            await self._log_auth_status()
 
         collected_count = 0
         page = 1
@@ -43,9 +72,19 @@ class DanbooruWorker(BaseWorker):
                 self.log(f"Scanning API... (Page {page})")
                 limit_val = min(200, self.amount - collected_count if self.amount > 0 else 200)
 
-                resp = await self.session.get("https://danbooru.donmai.us/posts.json", params={"tags": self.api_tag, "page": page, "limit": limit_val})
+                resp = await self.session.get("https://danbooru.donmai.us/posts.json", params={"tags": self.api_tag, "page": page, "limit": limit_val}, auth=self._auth)
                 if resp.status in [403, 429]:
                     self.log(f"ERROR {resp.status}. Change proxy.")
+                    break
+                if resp.status == 401 and self._auth:
+                    self.log("Auth failed — check your Danbooru username/API key in Options.")
+                    break
+                if resp.status == 422:
+                    n = len(self.original_tag.split())
+                    if self._auth:
+                        self.log(f"ERROR 422: query exceeds your account's tag limit — your query has {n} tags. Reduce tags and retry.")
+                    else:
+                        self.log(f"ERROR 422: Danbooru allows max 2 search tags without login (rating excluded) — your query has {n}. Add your login + API key in Options, or reduce tags.")
                     break
                 resp.raise_for_status()
 
@@ -117,11 +156,6 @@ class DanbooruWorker(BaseWorker):
                 meta_set = set(metadata_tags)
                 tags_list = [t for t in tags_list if t not in artist_set and t not in char_set and t not in copy_set and t not in meta_set]
 
-                rating_tag_map = {"g": "rating:g", "s": "rating:s", "q": "rating:q", "e": "rating:e"}
-                rt = rating_tag_map.get(post_rating)
-                if rt:
-                    tags_list.append(rt)
-
                 if await self.enqueue_download(url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):
                     collected_count += 1
                     had_valid = True
@@ -131,6 +165,9 @@ class DanbooruWorker(BaseWorker):
                 await asyncio.sleep(self.anti_ban_pause)
 
         actual = self.enqueued_count
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
         if actual == 0:
             self.log("No new images to download.")
         else:
@@ -138,7 +175,8 @@ class DanbooruWorker(BaseWorker):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        self.log("--- Worker Terminated ---")
+        if self.stop_event.is_set():
+            self.log("--- Worker Terminated ---")
 
 def worker_danbooru(tag, amount, rating, exclusions, net_config):
     worker = DanbooruWorker(tag, amount, rating, exclusions, net_config)

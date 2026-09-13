@@ -6,9 +6,10 @@ from rule34Py.tag import TagType
 
 
 class Rule34Worker(BaseWorker):
-    def __init__(self, tag, amount, method, sort_type, sort_order, exclusions, net_config):
+    def __init__(self, tag, amount, method, sort_type, sort_order, exclusions, net_config, exclude_ai=False):
         super().__init__("rule34", "Rule34", amount, net_config)
         self.original_tag = tag.strip().lower()
+        self.exclude_ai = exclude_ai
         self.method = method
         self.sort_type = sort_type
         self.sort_order = sort_order
@@ -97,7 +98,7 @@ class Rule34Worker(BaseWorker):
 
             for attempt in range(max_retries):
                 try:
-                    results = await asyncio.to_thread(self.client.search, self.api_tags, page_id=page, limit=chunk_limit)
+                    results = await asyncio.to_thread(self.client.search, self.api_tags, page_id=page, limit=chunk_limit, exclude_ai=self.exclude_ai)
                     break
                 except TypeError as e:
                     if "string indices must be integers" in str(e):
@@ -119,7 +120,7 @@ class Rule34Worker(BaseWorker):
 
             if not results:
                 if page == 0:
-                    self.log(f"0 images found for {self.api_tags}.")
+                    self.log(f"ZERO images found for {self.api_tags}.")
                 else:
                     self.log("End of database reached.")
                 break
@@ -166,8 +167,6 @@ class Rule34Worker(BaseWorker):
                     tags_list = [str(t).strip() for t in tags_raw if str(t).strip()]
                     artists, characters, copyrights, metadata_tags = [], [], [], []
 
-                tags_list.append("rating:e")
-
                 if await self.enqueue_download(file_url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):
                     collected_count += 1
                     had_valid = True
@@ -179,6 +178,9 @@ class Rule34Worker(BaseWorker):
                 await asyncio.sleep(delay)
 
         actual = self.enqueued_count
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
         if actual == 0:
             self.log("No new images to download.")
         else:
@@ -186,8 +188,9 @@ class Rule34Worker(BaseWorker):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        self.log("--- Worker Terminated ---")
+        if self.stop_event.is_set():
+            self.log("--- Worker Terminated ---")
 
-def worker_rule34(tag, amount, method, sort_type, sort_order, exclusions, net_config):
-    worker = Rule34Worker(tag, amount, method, sort_type, sort_order, exclusions, net_config)
+def worker_rule34(tag, amount, method, sort_type, sort_order, exclusions, net_config, exclude_ai=False):
+    worker = Rule34Worker(tag, amount, method, sort_type, sort_order, exclusions, net_config, exclude_ai)
     worker.run()

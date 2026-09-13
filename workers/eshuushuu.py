@@ -1,4 +1,5 @@
 import os, re, asyncio, json
+import requests
 from core.shared import BaseDownloader
 
 class EShuushuuWorker(BaseDownloader):
@@ -16,28 +17,94 @@ class EShuushuuWorker(BaseDownloader):
             else:
                 self.log(f"Could not resolve username '{self.user_id}' from DB")
                 
-        self.tag_id = ""
-        if self.original_tag:
-            if self.original_tag.isdigit():
-                self.tag_id = self.original_tag
-            else:
-                self.tag_id = self._resolve_tag_id(self.original_tag)
-                
+        self.tag_names = [t for t in self.original_tag.split() if not t.startswith('-')]
+        self.tag_ids, self.unknown_tags = self._resolve_many(self.tag_names)
+        self.tag_id = ",".join(self.tag_ids)
+
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-'))
         self.safe_tag = re.sub(r'[\\/*?"<>|]', "", clean_tag or "all")
         self.tag_dir = os.path.join(self.site_root, self.safe_tag or "all")
         os.makedirs(self.tag_dir, exist_ok=True)
 
+    def _resolve_many(self, tokens):
+        # ponytail: titles contain spaces ("long hair") — greedy longest
+        # match left-to-right so multi-word tags survive whitespace splitting
+        ids, unknown, cache = [], [], {}
+        i = 0
+        while i < len(tokens):
+            if tokens[i].isdigit():
+                ids.append(tokens[i])
+                i += 1
+                continue
+            hit = None
+            for j in range(len(tokens), i, -1):
+                cand = " ".join(tokens[i:j])
+                key = cand.lower()
+                if key not in cache:
+                    cache[key] = self._resolve_tag_id(cand)
+                if cache[key]:
+                    hit = cache[key]
+                    i = j
+                    break
+            if hit:
+                ids.append(hit)
+            else:
+                unknown.append(tokens[i])
+                i += 1
+        return ids, unknown
+
+    def _http_session(self):
+        s = requests.Session()
+        if self.net_config.get("use_proxy"):
+            p = self.net_config.get("proxy_url")
+            s.proxies = {"http": p, "https": p}
+        s.verify = self.net_config.get("verify_tls", False)
+        return s
+
     def _resolve_tag_id(self, tag_name):
+        # ponytail: exclusions/underscores are input syntax, not tag titles
+        name = " ".join(t for t in tag_name.replace("_", " ").split()
+                        if not t.startswith('-')).strip()
+        if not name:
+            return ""
         db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database", "eshuushuu_tags.json")
         if os.path.exists(db_path):
             try:
                 with open(db_path, encoding="utf-8") as f:
                     tags = json.load(f)
                 for t in tags:
-                    if t["title"].lower() == tag_name.lower():
+                    if t["title"].lower() == name.lower():
                         return str(t["tag_id"])
             except Exception: pass
+        # local DB is absent — resolve live or not at all. A raw-text
+        # tags= query is silently ignored by the site (serves the
+        # homepage feed), so never fall back to one.
+        return self._resolve_tag_id_online(name)
+
+    def _resolve_tag_id_online(self, name, _depth=0):
+        try:
+            resp = self._http_session().get(
+                "https://e-shuushuu.net/api/v1/tags",
+                params={"search": name}, timeout=15)
+            if resp.status_code != 200:
+                return ""
+            payload = resp.json()
+            tags = payload.get("tags", []) if isinstance(payload, dict) else []
+            exact = [t for t in tags if isinstance(t, dict)
+                     and str(t.get("title", "")).lower() == name.lower()]
+            if not exact:
+                return ""
+            canon = [t for t in exact if not t.get("is_alias")]
+            if canon:
+                canon.sort(key=lambda t: t.get("usage_count") or 0, reverse=True)
+                tid = canon[0].get("tag_id")
+                return str(tid) if tid else ""
+            if _depth == 0:
+                target = exact[0].get("alias_of_name") or ""
+                if target:
+                    return self._resolve_tag_id_online(target, _depth + 1)
+        except Exception:
+            pass
         return ""
 
     def _resolve_user_id(self, username):
@@ -63,21 +130,20 @@ class EShuushuuWorker(BaseDownloader):
             label = f"'{self.original_tag}' + user_id:{self.user_id}"
         self.log(f"Scanning e-shuushuu for: {label}")
 
+        if self.original_tag and (self.unknown_tags or not self.tag_id):
+            bad = ", ".join(f"'{t}'" for t in self.unknown_tags) or f"'{self.original_tag}'"
+            self.log(f"Unknown tag(s) {bad} — not downloading anything.")
+            return
+
         collected = 0
         page = 1
-        
-        import requests
-        req_session = requests.Session()
-        if self.net_config.get("use_proxy"):
-            p = self.net_config.get("proxy_url")
-            req_session.proxies = {"http": p, "https": p}
-        req_session.verify = self.net_config.get("verify_tls", False)
+
+        req_session = self._http_session()
 
         while not self.stop_event.is_set() and (self.amount == 0 or collected < self.amount):
             try:
                 params = []
                 if self.tag_id: params.append(f"tags={self.tag_id}")
-                elif self.original_tag: params.append(f"tags={self.original_tag.replace(' ', '+')}")
                 if self.user_id: params.append(f"user_id={self.user_id}")
                 params.append(f"page={page}")
                 search_url = f"https://e-shuushuu.net/search?{'&'.join(params)}"
@@ -164,7 +230,10 @@ class EShuushuuWorker(BaseDownloader):
                 await asyncio.sleep(self.anti_ban_pause)
 
         qsize = self.download_queue.qsize() if self.download_queue else collected
-        if qsize == 0: self.log("No new images.")
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
+        if qsize == 0: self.log("No new images to download.")
         else: self.log(f"Enqueued {qsize} items. Completing downloads...")
 
     def _g(self, raw, key):
@@ -173,7 +242,8 @@ class EShuushuuWorker(BaseDownloader):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        self.log("--- Worker Terminated ---")
+        if self.stop_event.is_set():
+            self.log("--- Worker Terminated ---")
 
 def worker_eshuushuu(tag, amount, exclusions, user_id, net_config):
     EShuushuuWorker(tag, amount, exclusions, user_id, net_config).run()

@@ -30,29 +30,31 @@ class SafebooruWorker(BaseWorker):
         uncached = [t for t in tag_names if t not in cache]
         if uncached:
             self.log(f"Fetching types for {len(uncached)} tags...")
-            for i in range(0, len(uncached), 100):
-                batch = uncached[i:i+100]
-                for tag_name in batch:
+            # ponytail: one request per tag SEQUENTIALLY stalled every page
+            # for 10-25s — same concurrent pattern as the gelbooru worker
+            sem = asyncio.Semaphore(4)
+            async def query_one(tag_name):
+                async with sem:
                     try:
                         resp = await self.session.get("https://safebooru.org/index.php", params={
                             "page": "dapi", "s": "tag", "q": "index",
-                            "name": tag_name, "limit": 1
+                            "name": tag_name, "limit": 50
                         })
                         if resp.status != 200:
                             cache[tag_name] = 0
-                            continue
-                        text = await resp.text()
-                        root = ET.fromstring(text)
-                        tag_el = root.find("tag")
-                        if tag_el is not None:
-                            tag_type = int(tag_el.get("type", 0))
                         else:
-                            tag_type = 0
-                        cache[tag_name] = tag_type
+                            text = await resp.text()
+                            root = ET.fromstring(text)
+                            # ponytail: scan every row for the exact tag
+                            cache[tag_name] = 0
+                            for tag_el in root.findall("tag"):
+                                if tag_el.get("name", "").lower() == tag_name.lower():
+                                    cache[tag_name] = int(tag_el.get("type", 0))
+                                    break
                     except Exception:
                         cache[tag_name] = 0
-                if i + 100 < len(uncached):
                     await asyncio.sleep(0.2)
+            await asyncio.gather(*[query_one(t) for t in uncached])
             shared.save_tag_cache(cache, "safebooru")
         return cache
 
@@ -148,7 +150,6 @@ class SafebooruWorker(BaseWorker):
                 copyrights = cats["copyright"]
                 metadata_tags = cats["metadata"]
                 tags_list = cats["tag"]
-                tags_list.append("rating:g")
 
                 if await self.enqueue_download(file_url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):
                     collected_count += 1
@@ -159,6 +160,9 @@ class SafebooruWorker(BaseWorker):
                 await asyncio.sleep(self.anti_ban_pause)
 
         actual = self.enqueued_count
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
         if actual == 0:
             self.log("No new images to download.")
         else:
@@ -166,7 +170,8 @@ class SafebooruWorker(BaseWorker):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        self.log("--- Worker Terminated ---")
+        if self.stop_event.is_set():
+            self.log("--- Worker Terminated ---")
 
 def worker_safebooru(tag, amount, exclusions, net_config):
     worker = SafebooruWorker(tag, amount, exclusions, net_config)

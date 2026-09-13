@@ -42,12 +42,14 @@ class KonachanWorker(BaseWorker):
                 try:
                     resp = await self.session.get(
                         "https://konachan.com/tag.json",
-                        params={"name": tag_name, "order": "count"}
+                        params={"name": tag_name, "order": "count", "limit": 50}
                     )
                     if resp.status == 200:
                         tags = await resp.json()
-                        if tags:
-                            self.tag_cache[tag_name] = TAG_TYPE_MAP.get(tags[0].get("type", 0), "tag")
+                        # ponytail: scan every row for the exact tag
+                        match = next((t for t in tags if str(t.get("name", "")).lower() == tag_name.lower()), None)
+                        if match:
+                            self.tag_cache[tag_name] = TAG_TYPE_MAP.get(match.get("type", 0), "tag")
                         else:
                             self.tag_cache[tag_name] = "tag"
                     else:
@@ -70,7 +72,7 @@ class KonachanWorker(BaseWorker):
         return general, artists, characters, copyrights, metadata_tags
 
     async def scraper_task(self):
-        self.log(f"Initializing worker for tag: '{self.api_tag}'")
+        self.log(f"Initializing worker for tag: '{self.original_tag}'" + (f" (rating: {self.rating_map.get(self.rating.split(":")[-1], "")})" if self.rating else ""))
 
         auth = {}
         kona_user = os.getenv("KONACHAN_USERNAME", "")
@@ -179,11 +181,6 @@ class KonachanWorker(BaseWorker):
                 tags_list = [t.strip() for t in tags_raw.split() if t.strip()]
                 tags_list, artists, characters, copyrights, metadata_tags = self._categorize_tags(tags_list)
 
-                rating_tag_map = {"s": "rating:s", "q": "rating:q", "e": "rating:e"}
-                rt = rating_tag_map.get(post_rating)
-                if rt:
-                    tags_list.append(rt)
-
                 if await self.enqueue_download(url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):
                     collected_count += 1
                     had_valid = True
@@ -193,6 +190,9 @@ class KonachanWorker(BaseWorker):
                 await asyncio.sleep(self.anti_ban_pause)
 
         actual = self.enqueued_count
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
         if actual == 0:
             self.log("No new images to download.")
         else:
@@ -200,7 +200,8 @@ class KonachanWorker(BaseWorker):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        self.log("--- Worker Terminated ---")
+        if self.stop_event.is_set():
+            self.log("--- Worker Terminated ---")
 
 def worker_konachan(tag, amount, rating, exclusions, net_config):
     worker = KonachanWorker(tag, amount, rating, exclusions, net_config)

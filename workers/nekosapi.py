@@ -51,7 +51,7 @@ class NekosApiWorker(BaseDownloader):
 
                 images = data.get("items", [])
                 if not images:
-                    self.log("No more images found.")
+                    self.log("No new images to download.")
                     break
             except Exception as e:
                 self.log(f"API error: {e}")
@@ -68,10 +68,6 @@ class NekosApiWorker(BaseDownloader):
                 filename = f"{img_id}.{ext}"
                 filepath = os.path.join(self.rating_dir, filename)
                 tag_list = self.tags + [t for t in img.get("tags", []) if t]
-                rating_tag_map = {"safe": "rating:safe", "suggestive": "rating:s", "borderline": "rating:q", "explicit": "rating:e"}
-                rt = rating_tag_map.get(self.rating.lower())
-                if rt:
-                    tag_list.append(rt)
                 artist_name = img.get("artist_name")
                 artists = [artist_name] if artist_name else []
                 if await self.enqueue_download(url, filepath, filename, tag_list, artists):
@@ -82,12 +78,16 @@ class NekosApiWorker(BaseDownloader):
             if not self.stop_event.is_set():
                 await asyncio.sleep(self.anti_ban_pause)
 
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
         if collected:
             self.log(f"Enqueued {collected} item{'s' if collected != 1 else ''}.")
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        self.log("--- Worker Terminated ---")
+        if self.stop_event.is_set():
+            self.log("--- Worker Terminated ---")
 
 def worker_nekosapi(tags, amount, rating, net_config):
     NekosApiWorker(tags, amount, rating, net_config).run()

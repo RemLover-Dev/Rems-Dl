@@ -2,7 +2,6 @@ import os
 import re
 import asyncio
 import html as html_lib
-import aiohttp
 import subprocess
 import hashlib
 from urllib.parse import urlencode
@@ -19,6 +18,7 @@ from core.shared import (
     write_image_metadata,
     add_to_gallery,
     send_tags,
+    build_tagd,
     MASTER_FOLDER,
 )
 
@@ -183,18 +183,18 @@ class GsbooruWorker(BaseWorker):
             raise CloudflareError("HTTP 403: Cloudflare challenge page")
         return text
 
-    async def enqueue_download(self, url, filepath, filename, tags_list, artists=None, characters=None, copyrights=None, metadata_tags=None):
+    async def enqueue_download(self, url, filepath, filename, tags_list, artists=None, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
         # gsbooru fetches files via curl too; skip the aiohttp HEAD request.
         if artists is None:
             artists = []
         if filename in self.dl_history or filename in self.queued_items or os.path.exists(filepath):
             return False
         self.queued_items.add(filename)
-        self.download_queue.put_nowait((url, filepath, filename, tags_list, artists, 0, characters, copyrights, metadata_tags))
+        self.download_queue.put_nowait((url, filepath, filename, tags_list, artists, 0, characters, copyrights, metadata_tags, outfits, groups, hair, eyes))
         self.enqueued_count += 1
         return True
 
-    async def _async_download_file(self, url, filepath, filename, tags_list, artists, file_size=0, characters=None, copyrights=None, metadata_tags=None):
+    async def _async_download_file(self, url, filepath, filename, tags_list, artists, file_size=0, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
         if self.stop_event.is_set():
             self.enqueued_count -= 1
             return False
@@ -240,15 +240,16 @@ class GsbooruWorker(BaseWorker):
 
                 rel_path = os.path.relpath(filepath, MASTER_FOLDER)
                 top_tags = ", ".join(tags_list[:5]) if tags_list else "No tags"
+                tagd = build_tagd(artists, characters, copyrights, metadata_tags, outfits, groups, hair, eyes, tags_list)
 
-                write_image_metadata(filepath, tags_list, artists, self.name, characters, copyrights, metadata_tags)
-                add_to_gallery(self.name, filename, rel_path, tags_list, artists, characters, copyrights, metadata_tags)
+                write_image_metadata(filepath, tags_list, artists, self.name, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
+                add_to_gallery(self.name, filename, rel_path, tags_list, artists, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
                 self.log(
                     f"[SUCCESS] Downloaded {filename} "
                     f"({self.downloaded_count}/{target_total}) [{pct}%] "
-                    f"|PATH| {rel_path} |TAGS| {top_tags}"
+                    f"|PATH| {rel_path} |TAGS| {top_tags} |TAGD| {tagd}"
                 )
-                send_tags(self.name, filename, tags_list, artists, rel_path, characters, copyrights, metadata_tags)
+                send_tags(self.name, filename, tags_list, artists, rel_path, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
                 return True
 
             except Exception as e:
@@ -270,33 +271,12 @@ class GsbooruWorker(BaseWorker):
 
     async def scraper_task(self):
 
-        def trace(msg):
-            with open(
-                os.path.join(
-                    os.path.dirname(__file__),
-                    "gsbooru_debug.log"
-                ),
-                "a",
-                encoding="utf-8"
-            ) as f:
-                import time
-                f.write(
-                    f"[{time.strftime('%H:%M:%S')}] {msg}\n"
-                )
-
-        trace(
-            f"run start | file={__file__} | "
-            f"stop={self.stop_event.is_set()} | "
-            f"amount={self.amount} | "
-            f"tag={self.api_tag!r}"
-        )
-
         self.log(
             f"Initializing worker for tag: '{self.api_tag}'"
+            + (f" (rating: {self.rating_label_map.get(self.filter_word, '')})" if self.filter_word else "")
         )
 
         if self.stop_event.is_set():
-            trace("ABORT: stop_event pre-set")
 
             self.log(
                 "BUG DIAGNOSTIC: stop_event was already set at start "
@@ -347,10 +327,6 @@ class GsbooruWorker(BaseWorker):
                         f"{POSTS_URL}?{urlencode(params)}"
                     )
 
-                    trace(
-                        f"page {page}: fetching {list_url}"
-                    )
-
                     list_html = await self._get_text(
                         list_url
                     )
@@ -359,20 +335,9 @@ class GsbooruWorker(BaseWorker):
                         list_html
                     )
 
-                    trace(
-                        f"page {page}: HTTP OK, "
-                        f"{len(list_html)} bytes, "
-                        f"{len(articles)} articles"
-                    )
-
                     break
 
                 except CloudflareError as e:
-
-                    trace(
-                        f"page {page}: CF blocked "
-                        f"(attempt {attempt + 1}): {e}"
-                    )
 
                     if attempt < 3:
 
@@ -396,10 +361,6 @@ class GsbooruWorker(BaseWorker):
                     break
 
                 except Exception as e:
-
-                    trace(
-                        f"page {page}: error: {e}"
-                    )
 
                     self.log(
                         f"Scrape Error: {e}"
@@ -431,7 +392,7 @@ class GsbooruWorker(BaseWorker):
                 if page == 1:
 
                     self.log(
-                        f"0 images found for "
+                        f"ZERO images found for "
                         f"'{self.original_tag}'. "
                         f"Page head: {list_html[:150]}"
                     )
@@ -490,29 +451,15 @@ class GsbooruWorker(BaseWorker):
                     and rating_word != self.filter_word
                 ):
 
-                    trace(
-                        f"#{post_id}: skipped by rating filter "
-                        f"(is {rating_word!r}, "
-                        f"want {self.filter_word!r})"
-                    )
-
                     continue
 
                 try:
-
-                    trace(
-                        f"#{post_id}: fetching view page"
-                    )
 
                     view_html = await self._get_text(
                         f"https://gsbooru.org/posts/view/{post_id}"
                     )
 
                 except CloudflareError as e:
-
-                    trace(
-                        f"#{post_id}: CF blocked on view page"
-                    )
 
                     self.log(
                         f"{e}. Stopping."
@@ -521,10 +468,6 @@ class GsbooruWorker(BaseWorker):
                     return
 
                 except Exception as e:
-
-                    trace(
-                        f"#{post_id}: view fetch failed: {e}"
-                    )
 
                     self.log(
                         f"[SKIP] #{post_id}: {e}"
@@ -539,10 +482,6 @@ class GsbooruWorker(BaseWorker):
 
                 if not fm:
 
-                    trace(
-                        f"#{post_id}: no file link on post page"
-                    )
-
                     self.log(
                         f"[SKIP] #{post_id}: "
                         f"no file link on post page"
@@ -553,11 +492,6 @@ class GsbooruWorker(BaseWorker):
                 file_url = (
                     "https://gsbooru.org"
                     + fm.group(1)
-                )
-
-                trace(
-                    f"#{post_id}: enqueuing "
-                    f"{file_url.rsplit('/', 1)[-1][:60]}"
                 )
 
                 ext = (
@@ -653,6 +587,10 @@ class GsbooruWorker(BaseWorker):
 
         actual = self.enqueued_count
 
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
+
         if actual == 0:
 
             self.log(
@@ -672,9 +610,10 @@ class GsbooruWorker(BaseWorker):
             )
         )
 
-        self.log(
-            "--- Worker Terminated ---"
-        )
+        if self.stop_event.is_set():
+            self.log(
+                "--- Worker Terminated ---"
+            )
 
 
 def worker_gsbooru(

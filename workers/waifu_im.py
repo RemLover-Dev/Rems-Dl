@@ -88,10 +88,7 @@ class WaifuImWorker(BaseWorker):
                 tags = [t.get("slug", "").replace("-", "_") for t in img.get("tags", []) if t.get("slug")]
                 if self.original_tag not in tags:
                     tags.append(self.original_tag)
-                if img.get("isNsfw"):
-                    tags.append("rating:e")
-                else:
-                    tags.append("rating:g")
+                # ponytail: no rating:* pseudo-tags — rating comes from the Safe/NSFW subdir
                 artists = [a.get("name", "") for a in img.get("artists", []) if a.get("name")]
 
                 if await self.enqueue_download(url, filepath, filename, tags, artists):
@@ -104,6 +101,9 @@ class WaifuImWorker(BaseWorker):
             await asyncio.sleep(self.anti_ban_pause)
 
         actual = self.enqueued_count
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
         if actual == 0:
             self.log("No new images to download.")
         else:
@@ -111,7 +111,8 @@ class WaifuImWorker(BaseWorker):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        self.log("--- Worker Terminated ---")
+        if self.stop_event.is_set():
+            self.log("--- Worker Terminated ---")
 
 def worker_waifu(tag, amount, is_nsfw, net_config):
     worker = WaifuImWorker(tag, amount, is_nsfw, net_config)

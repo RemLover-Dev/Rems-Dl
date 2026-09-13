@@ -18,7 +18,6 @@ class SankakuWorker(BaseWorker):
             self.api_tag = f"{self.original_tag} {self.rating}".strip()
 
         self.rating_map = {"s": "Safe", "q": "Questionable", "e": "NSFW"}
-        self.video_exts = {"mp4", "webm"}
 
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-'))
         # NOTE: ':' included — it is illegal on Windows (WinError 267/87).
@@ -35,10 +34,9 @@ class SankakuWorker(BaseWorker):
             "Referer": "https://www.sankakucomplex.com/",
         })
 
-        import os as _os
-        access_token = _os.getenv("SANKA_ACCESS_TOKEN")
-        sanka_login = _os.getenv("SANKA_LOGIN")
-        sanka_password = _os.getenv("SANKA_PASSWORD")
+        access_token = os.getenv("SANKA_ACCESS_TOKEN")
+        sanka_login = os.getenv("SANKA_LOGIN")
+        sanka_password = os.getenv("SANKA_PASSWORD")
 
         if not access_token and sanka_login and sanka_password:
             for login_url in (f"{API_BASE}/auth/token", "https://login.sankakucomplex.com/auth/token"):
@@ -87,7 +85,7 @@ class SankakuWorker(BaseWorker):
         await self.scraper_task()
 
     async def scraper_task(self):
-        self.log(f"Initializing worker for tag: '{self.api_tag}'")
+        self.log(f"Initializing worker for tag: '{self.original_tag}'" + (f" (rating: {self.rating_map.get(self.rating.split(":")[-1], "")})" if self.rating else ""))
 
         collected_count = 0
         page = 1
@@ -134,7 +132,7 @@ class SankakuWorker(BaseWorker):
 
                 if not posts:
                     if page == 1:
-                        self.log(f"ZERO images for '{self.api_tag}'. Auth: {'yes' if self.session.headers.get('Authorization') else 'none'}")
+                        self.log(f"ZERO images found for '{self.api_tag}'. Auth: {'yes' if self.session.headers.get('Authorization') else 'none'}")
                     break
 
             except Exception as e:
@@ -189,7 +187,6 @@ class SankakuWorker(BaseWorker):
                     characters = [t.get("name") for t in raw_tags if isinstance(t, dict) and t.get("type") == 4]
                     copyrights = [t.get("name") for t in raw_tags if isinstance(t, dict) and t.get("type") == 3]
                     metadata_tags = [t.get("name") for t in raw_tags if isinstance(t, dict) and t.get("type") == 7]
-                    general_names = {t.get("name") for t in raw_tags if isinstance(t, dict) and t.get("type") in (0, None)}
                     tags_list = [t.get("name", "") for t in raw_tags if t.get("name") and t.get("type") in (0, None)]
                 else:
                     tags_list = post.get("tag_names", [])
@@ -197,11 +194,6 @@ class SankakuWorker(BaseWorker):
                     characters = []
                     copyrights = []
                     metadata_tags = []
-
-                rating_tag_map = {"s": "rating:s", "q": "rating:q", "e": "rating:e"}
-                rt = rating_tag_map.get(post_rating)
-                if rt:
-                    tags_list.append(rt)
 
                 if await self.enqueue_download(url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):
                     collected_count += 1
@@ -212,6 +204,9 @@ class SankakuWorker(BaseWorker):
                 await asyncio.sleep(self.anti_ban_pause)
 
         actual = self.enqueued_count
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
         if actual == 0:
             self.log("No new images to download.")
         else:
@@ -219,7 +214,8 @@ class SankakuWorker(BaseWorker):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        self.log("--- Worker Terminated ---")
+        if self.stop_event.is_set():
+            self.log("--- Worker Terminated ---")
 
 
 def worker_sankaku(tag, amount, rating, exclusions, net_config):

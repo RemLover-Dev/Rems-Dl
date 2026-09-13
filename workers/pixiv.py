@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-# SPDX-License-Identifier: GPL-2.0-only
-#
+
 # Adapted from gallery-dl (https://github.com/mikf/gallery-dl)
 # Original: gallery_dl/extractor/pixiv.py  |  gallery_dl/text.py
 #           gallery_dl/extractor/common.py  |  gallery_dl/util.py
@@ -11,7 +10,7 @@
 # the Free Software Foundation, either version 2 of the License, or
 # (at your option) any later version.
 #
-# This file is part of Rems_Dl, which incorporates GPL-2.0 licensed
+# This file is part of RemGodCatcher, which incorporates GPL-2.0 licensed
 # code from gallery-dl. See LICENSE for details.
 #
 # Modifications: adapted to BaseDownloader pattern, removed gallery-dl
@@ -61,7 +60,7 @@ class PixivAppAPI:
         if self._token and now < self._token_expires:
             return
         if not self.refresh_token:
-            raise ValueError("PIXIV_REFRESH_TOKEN required in .env")
+            raise ValueError("PIXIV_REFRESH_TOKEN missing — paste your pixiv.net PHPSESSID cookie in Settings → Pixiv and click 'Get token from cookie'")
 
         self.log("Refreshing access token")
         url = "https://oauth.secure.pixiv.net/auth/token"
@@ -166,7 +165,7 @@ class PixivWorker(BaseDownloader):
         self.raw_tag = tag.strip()
         self.rating_filter = rating
         self.exclusions = exclusions
-        self.refresh_token = os.getenv("PIXIV_REFRESH_TOKEN", "")
+        self.refresh_token = net_config.get("pixiv_refresh_token") or os.getenv("PIXIV_REFRESH_TOKEN", "")
         self._api = None
 
         self.api_session = requests.Session()
@@ -184,6 +183,7 @@ class PixivWorker(BaseDownloader):
         else:
             self.mode = "artworks"
             self.value = self.raw_tag
+        self._artist_resolved = False
 
         safe_value = re.sub(r'[\\/*?:"<>|]', "", self.value) or "pixiv"
         if self.mode == "ranking":
@@ -200,37 +200,82 @@ class PixivWorker(BaseDownloader):
     async def scraper_task(self):
         self.log(f"Pixiv mode: {self.mode}, value: {self.value}")
         api = self._api_instance()
+        need = self.amount or 0
 
-        try:
-            works = await asyncio.to_thread(self._fetch_works, api)
-        except ValueError as e:
-            self.log(f"Auth error: {e}")
-            return
-        except Exception as e:
-            self.log(f"API error: {e}")
-            return
+        if self.mode == "bookmark":
+            endpoint, params = "/v1/user/bookmarks/illust", {"user_id": str(self.value), "restrict": "public"}
+        elif self.mode == "search":
+            endpoint, params = "/v1/search/illust", {"word": self.value, "sort": "date_desc",
+                                                     "search_target": "partial_match_for_tags"}
+        elif self.mode == "ranking":
+            endpoint, params = "/v1/illust/ranking", {"mode": self.value}
+        else:
+            endpoint, params = "/v1/user/illusts", {"user_id": str(self.value)}
 
-        self.log(f"Found {len(works)} works")
         collected = 0
-        for work in works:
-            if self.stop_event.is_set():
+        page = 0
+        MAX_PAGES = 100
+        while (need == 0 or collected < need) and not self.stop_event.is_set() and page < MAX_PAGES:
+            try:
+                data = await asyncio.to_thread(api._call, endpoint, params)
+            except ValueError as e:
+                self.log(f"Auth error: {e}")
+                return
+            except Exception as e:
+                self.log(f"API error: {e}")
+                return
+
+            works = data.get("illusts", []) if isinstance(data, dict) else []
+            if not works:
+                self.log("No more posts found.")
                 break
-            if self.amount > 0 and collected >= self.amount:
+            if self.mode == "artworks" and self.value.isdigit() and not self._artist_resolved:
+                self._resolve_artist_dir(works)
+            for work in works:
+                if self.stop_event.is_set() or (need and collected >= need):
+                    break
+                collected += await self._process_work(work)
+                if collected < len(works) and (need == 0 or collected < need):
+                    await asyncio.sleep(self.anti_ban_pause)
+            if need and collected >= need:
                 break
-            collected += await self._process_work(work)
-            if collected < len(works) and (
-                    self.amount == 0 or collected < self.amount):
+            nxt = data.get("next_url") if isinstance(data, dict) else None
+            if not nxt:
+                break
+            qs = nxt.rpartition("?")[2]
+            params = dict(
+                (k, unquote(v)) for part in qs.split("&") if "=" in part
+                for k, v in [part.split("=", 1)]
+            )
+            page += 1
+            if not self.stop_event.is_set():
                 await asyncio.sleep(self.anti_ban_pause)
 
-    def _fetch_works(self, api):
-        if self.mode == "bookmark":
-            return api.user_bookmarks(self.value, limit=0)
-        if self.mode == "search":
-            return api.search(self.value, limit=0)
-        if self.mode == "ranking":
-            return api.ranking(self.value, limit=0)
-        return api.user_illusts(self.value, limit=0)
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
+        if collected:
+            self.log(f"Enqueued {collected} item{'s' if collected != 1 else ''}.")
 
+    def _resolve_artist_dir(self, works):
+        # ponytail: the artist name rides free in the works payload — no extra API call
+        self._artist_resolved = True
+        name = ""
+        for w in works or []:
+            name = ((w.get("user") or {}).get("name") or "").strip()
+            if name:
+                break
+        old = self.tag_dir
+        if name:
+            safe = re.sub(r'[\\/*?:"<>|]', "", name).strip() or self.value
+            self.tag_dir = os.path.join(MASTER_FOLDER, "Artists", safe)
+            self.log(f"Artist: {name}")
+        os.makedirs(self.tag_dir, exist_ok=True)
+        try:
+            if old != self.tag_dir and os.path.isdir(old) and not os.listdir(old):
+                os.rmdir(old)
+        except Exception:
+            pass
     async def _process_work(self, work):
         work_id = work.get("id")
         if not work_id:
@@ -397,7 +442,8 @@ class PixivWorker(BaseDownloader):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        self.log("--- Worker Terminated ---")
+        if self.stop_event.is_set():
+            self.log("--- Worker Terminated ---")
 
 
 def worker_pixiv(tag, amount, rating, exclusions, net_config):

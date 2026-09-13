@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rems Dl</title>
-    <link rel="icon" type="image/png" href="icon.png">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Code+Pro:wght@300;400;500&display=swap" rel="stylesheet">
+    <title>Rem God Catcher</title>
+    <link rel="stylesheet" href="vendor/fonts.css">
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="vendor/socket.io.min.js"></script>
 </head>
 <body style="background-image: url('wallpaper/Rem_main_d.png');">
 
@@ -62,7 +61,7 @@
                         <button class="action-btn" onclick="browseFolder()">Browse</button>
                     </div>
 
-                    <div class="info-box" style="margin-top: 12px;">
+                    <div style="margin-top: 12px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
                         <div class="input-group" style="margin-top: 0;">
                             <input type="checkbox" id="proxyEnabled">
                             <label for="proxyEnabled" style="font-weight: 600;">Enable Proxy (Required for Rule34, Safebooru)</label>
@@ -74,7 +73,7 @@
                         </div>
                     </div>
 
-                    <div class="info-box" style="margin-top: 15px;">
+                    <div style="margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
                         <p style="color: var(--title-color); font-size: 14px; font-weight: bold; margin-bottom: 8px;">Favorite Tags</p>
                         <div id="favoritesListUI" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 120px; overflow-y: auto;">
                             </div>
@@ -85,20 +84,22 @@
 
             <div id="AnimeDL" class="tab-content" style="display: none;">
                 <h2>Anime Pictures Downloader</h2>
-                <div class="input-group">
-                    <label>Tags:</label>
-                    <div style="flex:1; position: relative;">
-                        <input style="width: 100%;" autocomplete="off" type="text" id="animeDlTag" placeholder="e.g. rem">
-                        <div id="animeDlAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                <div class="input-group" style="align-items: flex-start;">
+                    <label style="padding-top: 8px;">Tags:</label>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                        <div style="display:flex; gap:6px; position: relative;">
+                            <input style="flex:1;" autocomplete="off" type="text" id="animeDlTag" placeholder="e.g. rem">
+                            <div id="animeDlAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                        </div>
+                        <div id="animeDlTagsContainer" class="tag-visualizer" style="margin-top: 0;"></div>
                     </div>
-                    <label>Limit:</label>
+                    <label style="padding-top: 8px;">Limit:</label>
                     <input type="number" id="animeDlLimit" value="50" min="0" style="width: 80px;">
-                    <button class="action-btn" onclick="startWorker('anime_dl')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('anime_dl')">STOP</button>
+                    <button id="runBtn_anime_dl" class="action-btn" onclick="toggleWorker('anime_dl')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_anime_dl" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_anime_dl">0%</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span><span id="dlText_anime_dl">0%</span></div>
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_anime_dl"></div></div>
                 </div>
                 <div class="console-wrapper">
@@ -112,20 +113,22 @@
                 <h2>e-shuushuu Downloader</h2>
                 <div class="input-group">
                     <label>Tags:</label>
-                    <div style="flex:1; position: relative;">
-                        <input type="text" id="eshuushuuTag" placeholder="e.g. rem" autocomplete="off" style="width: 100%;">
-                        <div id="eshuushuuAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                        <div style="display:flex; gap:6px; position: relative;">
+                            <input type="text" id="eshuushuuTag" placeholder="e.g. rem" autocomplete="off" style="flex:1;" onkeydown="if(event.key==='Enter') addEshuushuuTag()">
+                            <div id="eshuushuuAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                        </div>
+                        <div id="eshuushuuTagsContainer" class="tag-visualizer" style="margin-top: 0;"></div>
                     </div>
                     <label>User ID:</label>
                     <input type="text" id="eshuushuuUser" placeholder="Optional" style="width: 100px;">
                     <label>Limit:</label>
                     <input type="number" id="eshuushuuLimit" value="50" min="0" style="width: 80px;">
-                    <button class="action-btn" onclick="startWorker('eshuushuu')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('eshuushuu')">STOP</button>
+                    <button id="runBtn_eshuushuu" class="action-btn" onclick="toggleWorker('eshuushuu')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_eshuushuu" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_eshuushuu">0%</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span><span id="dlText_eshuushuu">0%</span></div>
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_eshuushuu"></div></div>
                 </div>
                 <div class="console-wrapper">
@@ -152,12 +155,11 @@
                         <option value="borderline">Questionable</option>
                         <option value="explicit">NSFW</option>
                     </select>
-                    <button class="action-btn" onclick="startWorker('nekosapi')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('nekosapi')">STOP</button>
+                    <button id="runBtn_nekosapi" class="action-btn" onclick="toggleWorker('nekosapi')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_nekosapi" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_nekosapi">0%</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span><span id="dlText_nekosapi">0%</span></div>
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_nekosapi"></div></div>
                 </div>
                 <div class="console-wrapper">
@@ -171,9 +173,12 @@
                 <h2>Nekosia Downloader</h2>
                 <div class="input-group">
                     <label>Tags:</label>
-                    <div style="flex:1; position: relative;">
-                        <input type="text" id="nekosiaTag" placeholder="e.g. maid" autocomplete="off" style="width: 100%;">
-                        <div id="nekosiaAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                        <div style="display:flex; gap:6px; position: relative;">
+                            <input type="text" id="nekosiaTag" placeholder="e.g. maid" autocomplete="off" style="flex:1;" onkeydown="if(event.key==='Enter') addNekosiaTag()">
+                            <div id="nekosiaAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                        </div>
+                        <div id="nekosiaTagsContainer" class="tag-visualizer" style="margin-top: 0;"></div>
                     </div>
                     <label>Limit:</label>
                     <input type="number" id="nekosiaLimit" value="50" min="0" style="width: 80px;">
@@ -181,12 +186,11 @@
                         <option value="safe">Safe</option>
                         <option value="suggestive">Suggestive</option>
                     </select>
-                    <button class="action-btn" onclick="startWorker('nekosia')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('nekosia')">STOP</button>
+                    <button id="runBtn_nekosia" class="action-btn" onclick="toggleWorker('nekosia')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_nekosia" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_nekosia">0%</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span><span id="dlText_nekosia">0%</span></div>
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_nekosia"></div></div>
                 </div>
                 <div class="console-wrapper">
@@ -251,13 +255,16 @@
 
             <div id="Danbooru" class="tab-content" style="display: none;">
                 <h2>Danbooru Downloader</h2>
-                <div class="input-group">
-                    <label>Tags:</label>
-                    <div style="flex:1; position: relative;">
-                        <input style="width: 100%;" autocomplete="off" type="text" id="danTag" placeholder="e.g. rem blue_hair">
-                        <div id="danAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                <div class="input-group" style="align-items: flex-start;">
+                    <label style="padding-top: 8px;">Tags:</label>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                        <div style="display:flex; gap:6px; position: relative;">
+                            <input style="flex:1;" autocomplete="off" type="text" id="danTag" placeholder="e.g. rem blue_hair">
+                            <div id="danAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                        </div>
+                        <div id="danTagsContainer" class="tag-visualizer" style="margin-top: 0;"></div>
                     </div>
-                    <label>Limit:</label>
+                    <label style="padding-top: 8px;">Limit:</label>
                     <input type="number" id="danLimit" value="50" min="0" style="width: 80px;">
                     <select id="danRating" style="width: 130px;">
                         <option value="">All Ratings</option>
@@ -266,10 +273,9 @@
                         <option value="rating:q">Questionable</option>
                         <option value="rating:e">NSFW</option>
                     </select>
-                    <button class="action-btn" onclick="startWorker('dan')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('dan')">STOP</button>
+                    <button id="runBtn_dan" class="action-btn" onclick="toggleWorker('dan')">START</button>
                 </div>
-                <div class="input-group filter-bar">
+                <div class="input-group" style="margin-top: 10px; font-size: 14px; position: relative; padding-right: 90px;">
                     <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
                     <select id="danFormat" style="margin-right: 15px;">
                         <option value="images">Images Only</option>
@@ -277,14 +283,14 @@
                         <option value="videos">Videos Only</option>
                     </select>
                     <input type="checkbox" id="danExGif"> <label for="danExGif">Exclude GIF</label>
+                    <button class="clear-log-btn" style="top: 6px;" onclick="clearLog('dan')">Clear</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_dan" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_dan">0%</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span><span id="dlText_dan">0%</span></div>
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_dan"></div></div>
                 </div>
                 <div class="console-wrapper">
-                    <button class="clear-log-btn" onclick="clearLog('dan')">Clear</button>
                     <div id="consoleLog_dan" class="console-log"></div>
                 </div>
             </div>
@@ -324,37 +330,23 @@
                             <div class="dd-item" onclick="toggleCheck(this)"><span>NSFW</span><input type="checkbox" value="explicit"></div>
                         </div>
                     </div>
-                    <button id="galleryFavBtn" class="gallery-fav-btn" onclick="toggleFavFilter()">♥ Favorites</button>
-                    <button class="action-btn" onclick="rescanGallery()" title="Scan Rems Dl folder for new images">↻</button>
+                    <button id="galleryFavBtn" class="gallery-fav-btn" onclick="toggleFavFilter()" title="Favorites only"><svg width="1.3em" height="1.3em" viewBox="-1.5 -1.5 19 19" style="vertical-align:-0.125em;"><path fill="currentColor" stroke="none" d="M16 5c0 -2.20914 -1.7909 -4 -4 -4 -2.20914 0 -4 1.79086 -4 4 0 -2.20914 -1.79086 -4 -4 -4S0 2.79086 0 5c0 6.5 8 10 8 10s8 -3.5 8 -10Z"/></svg></button>
+                    <button class="action-btn" onclick="rescanGallery()" title="Scan Rem God folder for new images"><svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" style="vertical-align:-0.2em;"><path fill="currentColor" d="M12 3c2.4856 0.0001 4.735 1.00787 6.3633 2.63574l0.9297 -0.92871c0.6299 -0.62982 1.7069 -0.18374 1.707 0.70703V9c0 0.55228 -0.4477 1 -1 1h-3.5859c-0.8908 -0.00012 -1.3369 -1.07709 -0.7071 -1.70703l1.2422 -1.24317C15.6821 5.78291 13.9319 5.0001 12 5c-3.86582 0.0002 -7 3.13413 -7 7 0 3.8659 3.13418 6.9998 7 7 3.5687 -0.0002 6.5158 -2.6721 6.9463 -6.124 0.0685 -0.5479 0.5683 -0.9365 1.1162 -0.8682 0.5477 0.0687 0.9364 0.5684 0.8682 1.1162C20.3768 17.5644 16.5901 20.9998 12 21c-4.97039 -0.0002 -9 -4.0296 -9 -9 0 -4.97044 4.02961 -8.9998 9 -9"></path></svg></button>
                 </div>
                 <div id="galleryGrid"></div>
                 <div id="galleryPagination" class="gallery-pagination"></div>
-                <div id="galleryViewer" class="gallery-viewer" style="display: none;">
-                    <button class="gallery-viewer-top-btn close" onclick="closeGalleryViewer()" title="Close (Esc)">✕</button>
-                    <button class="gallery-viewer-top-btn fav" id="galleryViewerFav" onclick="toggleViewerFav()" title="Favourite">☆</button>
-                    <button id="galleryViewerCopy" class="gallery-viewer-top-btn copy" onclick="copyViewerImage()" title="Copy to Clipboard">📋</button>
-                    <button class="gallery-viewer-top-btn trash" onclick="deleteViewerImage()" title="Delete Image">🗑️</button>
-                    <button class="gallery-viewer-top-btn focus-mode" onclick="toggleFocusMode()" title="Focus Mode (Hide UI)">👁️</button>
-                    
-                    <span class="gallery-viewer-top-btn zoom-label" id="galleryViewerZoom">100%</span>
-                    
-                    <button class="gallery-viewer-nav prev" onclick="viewerNav(-1)" title="Previous (←)">❮</button>
-                    <button class="gallery-viewer-nav next" onclick="viewerNav(1)" title="Next (→)">❯</button>
-                    
-                    <img id="galleryViewerImg" src="">
-                    
-                    <!-- پنل نمایش اطلاعات و تگ‌ها (کپسول شیشه‌ای) -->
-                    <div id="galleryViewerMeta" class="gallery-viewer-meta"></div>
-                </div>
             </div>
 
             <div id="Gelbooru" class="tab-content" style="display: none;">
                 <h2>Gelbooru Downloader</h2>
                 <div class="input-group">
                     <label>Tags:</label>
-                    <div style="flex:1; position: relative;">
-                        <input style="width: 100%;" autocomplete="off" type="text" id="gelbooruTag" placeholder="e.g. 1girl blue_hair">
-                        <div id="gelbooruAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                        <div style="display:flex; gap:6px; position: relative;">
+                            <input style="flex:1;" autocomplete="off" type="text" id="gelbooruTag" placeholder="e.g. 1girl blue_hair" onkeydown="if(event.key==='Enter') addGelbooruTag()">
+                            <div id="gelbooruAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                        </div>
+                        <div id="gelbooruTagsContainer" class="tag-visualizer" style="margin-top: 0;"></div>
                     </div>
                     <label>Limit:</label>
                     <input type="number" id="gelbooruLimit" value="50" min="0" style="width: 80px;">
@@ -365,10 +357,9 @@
                         <option value="rating:q">Questionable</option>
                         <option value="rating:e">NSFW</option>
                     </select>
-                    <button class="action-btn" onclick="startWorker('gelbooru')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('gelbooru')">STOP</button>
+                    <button id="runBtn_gelbooru" class="action-btn" onclick="toggleWorker('gelbooru')">START</button>
                 </div>
-                <div class="input-group filter-bar">
+                <div class="input-group" style="margin-top: 10px; font-size: 14px; position: relative; padding-right: 90px;">
                     <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
                     <select id="gelFormat" style="margin-right: 15px;">
                         <option value="images">Images Only</option>
@@ -376,14 +367,14 @@
                         <option value="videos">Videos Only</option>
                     </select>
                     <input type="checkbox" id="gelNoAI"> <label for="gelNoAI">Exclude AI</label>
+                    <button class="clear-log-btn" style="top: 6px;" onclick="clearLog('gelbooru')">Clear</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_gelbooru" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_gelbooru">0%</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span><span id="dlText_gelbooru">0%</span></div>
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_gelbooru"></div></div>
                 </div>
                 <div class="console-wrapper">
-                    <button class="clear-log-btn" onclick="clearLog('gelbooru')">Clear</button>
                     <div id="consoleLog_gelbooru" class="console-log"></div>
                 </div>
             </div>
@@ -392,9 +383,12 @@
                 <h2>Gsbooru Downloader</h2>
                 <div class="input-group">
                     <label>Tags:</label>
-                    <div style="flex:1; position: relative;">
-                        <input style="width: 100%;" autocomplete="off" type="text" id="gsbooruTag" placeholder="e.g. 1girl blue_hair">
-                        <div id="gsbooruAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                        <div style="display:flex; gap:6px; position: relative;">
+                            <input style="flex:1;" autocomplete="off" type="text" id="gsbooruTag" placeholder="e.g. 1girl blue_hair" onkeydown="if(event.key==='Enter') addGsbooruTag()">
+                            <div id="gsbooruAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                        </div>
+                        <div id="gsbooruTagsContainer" class="tag-visualizer" style="margin-top: 0;"></div>
                     </div>
                     <label>Limit:</label>
                     <input type="number" id="gsbooruLimit" value="50" min="0" style="width: 80px;">
@@ -404,11 +398,10 @@
                         <option value="rating:s">Sensitive</option>
                         <option value="rating:q">Questionable</option>
                     </select>
-                    <button class="action-btn" onclick="startWorker('gsbooru')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('gsbooru')">STOP</button>
+                    <button id="runBtn_gsbooru" class="action-btn" onclick="toggleWorker('gsbooru')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_gsbooru" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_gsbooru">0%</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span><span id="dlText_gsbooru">0%</span></div>
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_gsbooru"></div></div>
                 </div>
                 <div class="console-wrapper">
@@ -437,9 +430,12 @@
                 <h2>Konachan Downloader</h2>
                 <div class="input-group">
                     <label>Tags:</label>
-                    <div style="flex:1; position: relative;">
-                        <input style="width: 100%;" autocomplete="off" type="text" id="konaTag" placeholder="e.g. rem blue_hair">
-                        <div id="konaAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                        <div style="display:flex; gap:6px; position: relative;">
+                            <input style="flex:1;" autocomplete="off" type="text" id="konaTag" placeholder="e.g. rem blue_hair" onkeydown="if(event.key==='Enter') addKonaTag()">
+                            <div id="konaAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                        </div>
+                        <div id="konaTagsContainer" class="tag-visualizer" style="margin-top: 0;"></div>
                     </div>
                     <label>Limit:</label>
                     <input type="number" id="konaLimit" value="50" min="0" style="width: 80px;">
@@ -449,10 +445,9 @@
                         <option value="rating:q">Questionable</option>
                         <option value="rating:e">NSFW</option>
                     </select>
-                    <button class="action-btn" onclick="startWorker('kona')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('kona')">STOP</button>
+                    <button id="runBtn_kona" class="action-btn" onclick="toggleWorker('kona')">START</button>
                 </div>
-                <div class="input-group filter-bar">
+                <div class="input-group" style="margin-top: 10px; font-size: 14px; position: relative; padding-right: 90px;">
                     <label style="color: var(--accent-color); font-weight: bold; margin-right: 10px;">Format:</label>
                     <select id="konaFormat" style="margin-right: 15px;">
                         <option value="images">Images Only</option>
@@ -460,14 +455,14 @@
                         <option value="videos">Videos Only</option>
                     </select>
                     <input type="checkbox" id="konaExGif"> <label for="konaExGif">Exclude GIF</label>
+                    <button class="clear-log-btn" style="top: 6px;" onclick="clearLog('kona')">Clear</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_kona" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_kona">0%</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span><span id="dlText_kona">0%</span></div>
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_kona"></div></div>
                 </div>
                 <div class="console-wrapper">
-                    <button class="clear-log-btn" onclick="clearLog('kona')">Clear</button>
                     <div id="consoleLog_kona" class="console-log"></div>
                 </div>
             </div>
@@ -484,12 +479,11 @@
                     <select id="nekoCat" style="width: 140px;"></select>
                     <label>Amount:</label>
                     <input type="number" id="nekoAmount" value="20" min="0" style="width: 80px;">
-                    <button class="action-btn" onclick="startWorker('neko')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('neko')">STOP</button>
+                    <button id="runBtn_neko" class="action-btn" onclick="toggleWorker('neko')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_neko" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_neko">0%</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span><span id="dlText_neko">0%</span></div>
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_neko"></div></div>
                 </div>
                 <div class="console-wrapper">
@@ -521,19 +515,18 @@
                     </select>
                     <span id="nekosLifeType" style="color: var(--accent-color); font-size: 12px; font-weight: bold; margin-left: 5px;"></span>
                     <label id="nekosLifeFormatLabel" style="margin-left: 10px; display: none;">Format:</label>
-                    <select id="nekosLifeFormat" style="width: 120px; display: none;" onchange="updateNekosLifeFormatHint()">
+                    <select id="nekosLifeFormat" style="width: 120px; display: none;">
                         <option value="both">Both (GIF & Image)</option>
                         <option value="gif">GIF Only</option>
                         <option value="image">Image Only</option>
                     </select>
                     <label style="margin-left: 10px;">Amount:</label>
                     <input type="number" id="nekosLifeAmount" value="20" min="0" style="width: 80px;">
-                    <button class="action-btn" onclick="startWorker('nekos_life')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('nekos_life')">STOP</button>
+                    <button id="runBtn_nekos_life" class="action-btn" onclick="toggleWorker('nekos_life')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_nekos_life" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_nekos_life">0%</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span><span id="dlText_nekos_life">0%</span></div>
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_nekos_life"></div></div>
                 </div>
                 <div class="console-wrapper">
@@ -549,45 +542,58 @@
 
                     <div class="settings-cards-grid">
                         <div class="settings-card">
-                            <h3>🔑 Rule34 Credentials</h3>
+                            <h3><svg width="1em" height="1em" viewBox="0 0 16 16" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" d="M10.5 11c3.0375 0 5.5 -2.4625 5.5 -5.5S13.5375 0 10.5 0 5 2.4625 5 5.5c0 0.584375 0.090625 1.15 0.259375 1.678125L0.21875 12.21875c-0.140625 0.140625 -0.21875 0.33125 -0.21875 0.53125v2.5c0 0.415625 0.334375 0.75 0.75 0.75h2.5c0.415625 0 0.75 -0.334375 0.75 -0.75v-1.25h1.25c0.415625 0 0.75 -0.334375 0.75 -0.75v-1.25h1.25c0.2 0 0.390625 -0.078125 0.53125 -0.21875l1.040625 -1.040625c0.528125 0.16875 1.09375 0.259375 1.678125 0.259375zm1.25 -8a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 1 1 0 -2.5z"/></svg>  Rule34 Credentials</h3>
                             <div class="field-row"><label>API Key:</label><input type="password" id="r34Key" placeholder="Rule34 API Key" style="flex:1;"></div>
                             <div class="field-row"><label>User ID:</label><input type="text" id="r34Uid" placeholder="Rule34 User ID" style="flex:1;"></div>
                         </div>
 
                         <div class="settings-card">
-                            <h3>🔑 Gelbooru Credentials</h3>
+                            <h3><svg width="1em" height="1em" viewBox="0 0 16 16" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" d="M10.5 11c3.0375 0 5.5 -2.4625 5.5 -5.5S13.5375 0 10.5 0 5 2.4625 5 5.5c0 0.584375 0.090625 1.15 0.259375 1.678125L0.21875 12.21875c-0.140625 0.140625 -0.21875 0.33125 -0.21875 0.53125v2.5c0 0.415625 0.334375 0.75 0.75 0.75h2.5c0.415625 0 0.75 -0.334375 0.75 -0.75v-1.25h1.25c0.415625 0 0.75 -0.334375 0.75 -0.75v-1.25h1.25c0.2 0 0.390625 -0.078125 0.53125 -0.21875l1.040625 -1.040625c0.528125 0.16875 1.09375 0.259375 1.678125 0.259375zm1.25 -8a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 1 1 0 -2.5z"/></svg>  Danbooru Credentials</h3>
+                            <div class="field-row"><label>Username:</label><input type="text" id="danLogin" placeholder="Danbooru Username" style="flex:1;"></div>
+                            <div class="field-row"><label>API Key:</label><input type="password" id="danApiKey" placeholder="Danbooru API Key" style="flex:1;"></div>
+                            <div style="font-size: 11px; opacity: 0.7; margin-top: 6px;">danbooru.donmai.us → My Account → API Key. Note: free Member accounts still cap at 2 search tags.</div>
+                        </div>
+
+                        <div class="settings-card">
+                            <h3><svg width="1em" height="1em" viewBox="0 0 16 16" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" d="M10.5 11c3.0375 0 5.5 -2.4625 5.5 -5.5S13.5375 0 10.5 0 5 2.4625 5 5.5c0 0.584375 0.090625 1.15 0.259375 1.678125L0.21875 12.21875c-0.140625 0.140625 -0.21875 0.33125 -0.21875 0.53125v2.5c0 0.415625 0.334375 0.75 0.75 0.75h2.5c0.415625 0 0.75 -0.334375 0.75 -0.75v-1.25h1.25c0.415625 0 0.75 -0.334375 0.75 -0.75v-1.25h1.25c0.2 0 0.390625 -0.078125 0.53125 -0.21875l1.040625 -1.040625c0.528125 0.16875 1.09375 0.259375 1.678125 0.259375zm1.25 -8a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 1 1 0 -2.5z"/></svg>  Gelbooru Credentials</h3>
                             <div class="field-row"><label>API Key:</label><input type="password" id="gelKey" placeholder="Gelbooru API Key" style="flex:1;"></div>
                             <div class="field-row"><label>User ID:</label><input type="text" id="gelUid" placeholder="Gelbooru User ID" style="flex:1;"></div>
                         </div>
 
                         <div class="settings-card">
-                            <h3>🔑 Konachan Credentials</h3>
+                            <h3><svg width="1em" height="1em" viewBox="0 0 16 16" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" d="M10.5 11c3.0375 0 5.5 -2.4625 5.5 -5.5S13.5375 0 10.5 0 5 2.4625 5 5.5c0 0.584375 0.090625 1.15 0.259375 1.678125L0.21875 12.21875c-0.140625 0.140625 -0.21875 0.33125 -0.21875 0.53125v2.5c0 0.415625 0.334375 0.75 0.75 0.75h2.5c0.415625 0 0.75 -0.334375 0.75 -0.75v-1.25h1.25c0.415625 0 0.75 -0.334375 0.75 -0.75v-1.25h1.25c0.2 0 0.390625 -0.078125 0.53125 -0.21875l1.040625 -1.040625c0.528125 0.16875 1.09375 0.259375 1.678125 0.259375zm1.25 -8a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 1 1 0 -2.5z"/></svg>  Konachan Credentials</h3>
                             <div class="field-row"><label>Username:</label><input type="text" id="konaLogin" placeholder="Konachan Username" style="flex:1;"></div>
                             <div class="field-row"><label>Password:</label><input type="password" id="konaPassword" placeholder="Password" style="flex:1;"></div>
                         </div>
 
                         <div class="settings-card">
-                            <h3>🔑 Sankaku Credentials</h3>
+                            <h3><svg width="1em" height="1em" viewBox="0 0 16 16" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" d="M10.5 11c3.0375 0 5.5 -2.4625 5.5 -5.5S13.5375 0 10.5 0 5 2.4625 5 5.5c0 0.584375 0.090625 1.15 0.259375 1.678125L0.21875 12.21875c-0.140625 0.140625 -0.21875 0.33125 -0.21875 0.53125v2.5c0 0.415625 0.334375 0.75 0.75 0.75h2.5c0.415625 0 0.75 -0.334375 0.75 -0.75v-1.25h1.25c0.415625 0 0.75 -0.334375 0.75 -0.75v-1.25h1.25c0.2 0 0.390625 -0.078125 0.53125 -0.21875l1.040625 -1.040625c0.528125 0.16875 1.09375 0.259375 1.678125 0.259375zm1.25 -8a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 1 1 0 -2.5z"/></svg>  Sankaku Credentials</h3>
                             <div class="field-row"><label>Login:</label><input type="text" id="sankaLogin" placeholder="Email / Username" style="flex:1;"></div>
                             <div class="field-row"><label>Password:</label><input type="password" id="sankaPassword" placeholder="Password" style="flex:1;"></div>
                         </div>
 
                         <div class="settings-card">
-                            <h3>🔑 Zerochan Credentials</h3>
+                            <h3><svg width="1em" height="1em" viewBox="0 0 16 16" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" d="M10.5 11c3.0375 0 5.5 -2.4625 5.5 -5.5S13.5375 0 10.5 0 5 2.4625 5 5.5c0 0.584375 0.090625 1.15 0.259375 1.678125L0.21875 12.21875c-0.140625 0.140625 -0.21875 0.33125 -0.21875 0.53125v2.5c0 0.415625 0.334375 0.75 0.75 0.75h2.5c0.415625 0 0.75 -0.334375 0.75 -0.75v-1.25h1.25c0.415625 0 0.75 -0.334375 0.75 -0.75v-1.25h1.25c0.2 0 0.390625 -0.078125 0.53125 -0.21875l1.040625 -1.040625c0.528125 0.16875 1.09375 0.259375 1.678125 0.259375zm1.25 -8a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 1 1 0 -2.5z"/></svg>  Zerochan Credentials</h3>
                             <div class="field-row"><label>Username:</label><input type="text" id="zeroLogin" placeholder="Zerochan Username" style="flex:1;"></div>
                             <div class="field-row"><label>Password:</label><input type="password" id="zeroPassword" placeholder="Zerochan Password" style="flex:1;"></div>
                         </div>
 
                         <div class="settings-card">
-                            <h3>🔑 Pinterest Login</h3>
+                            <h3><svg width="1em" height="1em" viewBox="0 0 16 16" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" d="M10.5 11c3.0375 0 5.5 -2.4625 5.5 -5.5S13.5375 0 10.5 0 5 2.4625 5 5.5c0 0.584375 0.090625 1.15 0.259375 1.678125L0.21875 12.21875c-0.140625 0.140625 -0.21875 0.33125 -0.21875 0.53125v2.5c0 0.415625 0.334375 0.75 0.75 0.75h2.5c0.415625 0 0.75 -0.334375 0.75 -0.75v-1.25h1.25c0.415625 0 0.75 -0.334375 0.75 -0.75v-1.25h1.25c0.2 0 0.390625 -0.078125 0.53125 -0.21875l1.040625 -1.040625c0.528125 0.16875 1.09375 0.259375 1.678125 0.259375zm1.25 -8a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 1 1 0 -2.5z"/></svg>  Pinterest Login</h3>
                             <div class="field-row"><label>Cookies:</label><input type="text" id="pinterestCookies" placeholder="Cookies file path (optional)" style="flex:1;"></div>
                             <div class="field-row"><label>Email:</label><input type="email" id="pinterestEmail" placeholder="Email (fallback)" style="flex:1;"></div>
                             <div class="field-row"><label>Password:</label><input type="password" id="pinterestPassword" placeholder="Password" style="flex:1;"></div>
                         </div>
 
                         <div class="settings-card">
-                            <h3>🔑 Pixiv Credentials</h3>
+                            <h3><svg width="1em" height="1em" viewBox="0 0 16 16" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" d="M10.5 11c3.0375 0 5.5 -2.4625 5.5 -5.5S13.5375 0 10.5 0 5 2.4625 5 5.5c0 0.584375 0.090625 1.15 0.259375 1.678125L0.21875 12.21875c-0.140625 0.140625 -0.21875 0.33125 -0.21875 0.53125v2.5c0 0.415625 0.334375 0.75 0.75 0.75h2.5c0.415625 0 0.75 -0.334375 0.75 -0.75v-1.25h1.25c0.415625 0 0.75 -0.334375 0.75 -0.75v-1.25h1.25c0.2 0 0.390625 -0.078125 0.53125 -0.21875l1.040625 -1.040625c0.528125 0.16875 1.09375 0.259375 1.678125 0.259375zm1.25 -8a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 1 1 0 -2.5z"/></svg>  Pixiv Credentials</h3>
                             <div class="field-row"><label>Refresh Token:</label><input type="password" id="pixivToken" placeholder="PIXIV_REFRESH_TOKEN" style="flex:1;"></div>
+                            <div class="field-row"><label>Cookie:</label><input type="password" id="pixivCookie" placeholder="PHPSESSID=... (from pixiv.net login)" style="flex:1;"></div>
+                            <div class="field-row" style="align-items: center; gap: 12px;">
+                                <button class="action-btn" onclick="exchangePixivCookie()"><svg width="1em" height="1em" viewBox="0 0 16 16" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" d="M10.5 11c3.0375 0 5.5 -2.4625 5.5 -5.5S13.5375 0 10.5 0 5 2.4625 5 5.5c0 0.584375 0.090625 1.15 0.259375 1.678125L0.21875 12.21875c-0.140625 0.140625 -0.21875 0.33125 -0.21875 0.53125v2.5c0 0.415625 0.334375 0.75 0.75 0.75h2.5c0.415625 0 0.75 -0.334375 0.75 -0.75v-1.25h1.25c0.415625 0 0.75 -0.334375 0.75 -0.75v-1.25h1.25c0.2 0 0.390625 -0.078125 0.53125 -0.21875l1.040625 -1.040625c0.528125 0.16875 1.09375 0.259375 1.678125 0.259375zm1.25 -8a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 1 1 0 -2.5z"/></svg> Get token from cookie</button>
+                                <span id="pixivTokenStatus" style="font-size: 12px; color: var(--title-color);"></span>
+                            </div>
+                            <div style="font-size: 11px; opacity: 0.7; margin-top: 6px;">Log in to pixiv.net in your browser → F12 → Application → Cookies → copy <b>PHPSESSID</b> → paste above. Uses your proxy (127.0.0.1:10808).</div>
                         </div>
 
                         <div class="settings-card" style="grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 16px;">
@@ -602,10 +608,6 @@
                                 <div class="field-row" style="flex-direction: column; align-items: flex-start; gap: 4px;"><label style="min-width: unset; font-size: 12px; opacity: 0.8;">Retry Wait (s)</label><input type="number" id="retryWait" value="5" style="width: 100%;"></div>
                                 <div class="field-row" style="flex-direction: column; align-items: flex-start; gap: 4px;"><label style="min-width: unset; font-size: 12px; opacity: 0.8;">Anti-Ban Pause (s)</label><input type="number" id="antiBanPause" value="3" step="0.5" style="width: 100%;"></div>
                                 <div class="field-row" style="flex-direction: column; align-items: flex-start; gap: 4px;"><label style="min-width: unset; font-size: 12px; opacity: 0.8;">Download Retries</label><input type="number" id="downloadRetries" value="3" min="1" style="width: 100%;"></div>
-                            </div>
-                            <div class="field-row" style="margin-top: 12px;">
-                                <input type="checkbox" id="muteAuthWarnings" onchange="saveMuteAuthWarnings()">
-                                <label for="muteAuthWarnings">Mute login tips for Sankaku/Konachan (hide soft auth warnings)</label>
                             </div>
                             <div style="display: flex; align-items: center; gap: 12px; margin-top: 12px;">
                                 <button class="action-btn" onclick="saveDownloadSettings()">💾 Save Download Settings</button>
@@ -632,12 +634,11 @@
                         <option value="search">Search</option>
                         <option value="scrape">URL Scrape</option>
                     </select>
-                    <button class="action-btn" onclick="startWorker('pinterest')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('pinterest')">STOP</button>
+                    <button id="runBtn_pinterest" class="action-btn" onclick="toggleWorker('pinterest')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_pinterest" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_pinterest">0%</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span><span id="dlText_pinterest">0%</span></div>
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_pinterest"></div></div>
                 </div>
                 <div class="console-wrapper">
@@ -678,10 +679,12 @@
                         <option value="rating:r18">R-18</option>
                         <option value="rating:r18g">R-18G</option>
                     </select>
-                    <button class="action-btn" onclick="startWorker('pixiv')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('pixiv')">STOP</button>
+                    <button id="runBtn_pixiv" class="action-btn" onclick="toggleWorker('pixiv')">START</button>
                 </div>
-                <div class="worker-progress" id="progressWrap_pixiv"><div class="worker-progress-fill" id="progress_pixiv"></div><span class="progress-text" id="progressText_pixiv">0%</span></div>
+                <div class="dual-progress-container" id="dualProgress_pixiv" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span><span id="dlText_pixiv">0%</span></div>
+                    <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_pixiv"></div></div>
+                </div>
                 <div class="console-wrapper">
                     <button class="clear-log-btn" onclick="clearLog('pixiv')">Clear</button>
                     <div id="consoleLog_pixiv" class="console-log"></div>
@@ -691,68 +694,65 @@
             <!-- CLEANED RULE34 LAYOUT -->
             <div id="Rule34" class="tab-content" style="display: none;">
                 <h2>Rule34 Downloader</h2>
-                <div class="info-box" style="border-color: var(--border-color); margin-top: 5px; margin-bottom: 5px;">
+                <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); margin-top: 5px; margin-bottom: 5px;">
                     <div class="input-group" style="margin-top: 0; align-items: flex-start; gap: 8px;">
                         <label style="min-width: 60px; padding-top: 4px; font-size: 13px;">Tags:</label>
                         <div style="display:flex; flex-direction:column; flex:1; gap:4px;">
                             <div style="display:flex; gap:6px; position: relative;">
                                 <input type="text" id="rule34TagInput" autocomplete="off" placeholder="e.g. rem blue_hair -maid" style="flex:1; padding: 4px 8px; font-size: 13px;" onkeydown="if(event.key==='Enter') addRule34Tag()">
-                                <div id="rule34Autosuggest" class="autosuggest-dropdown" style="display:none;"></div>
-                                <button class="action-btn" onclick="addRule34Tag()" style="padding: 0 10px; font-size: 12px; height: 26px;">Add</button>
+                                <div id="rule34Autosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
                             </div>
                             <div id="rule34TagsContainer" class="tag-visualizer" style="margin-top: 0;"></div>
                         </div>
                     </div>
 
-                    <div class="r34-grid">
-                        <div class="input-group r34-row">
-                            <label>Method:</label>
-                            <select id="rule34Method">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
+                        <div class="input-group" style="margin-top: 0;">
+                            <label style="min-width: 60px; font-size: 13px;">Method:</label>
+                            <select id="rule34Method" style="flex: 1; padding: 2px 6px; font-size: 12px; height: 26px;">
                                 <option value="and">AND (All)</option>
                                 <option value="or">OR (Any)</option>
                             </select>
                         </div>
-                        <div class="input-group r34-row">
-                            <label>Sort:</label>
-                            <select id="rule34SortType">
+                        <div class="input-group" style="margin-top: 0;">
+                            <label style="min-width: 40px; font-size: 13px;">Sort:</label>
+                            <select id="rule34SortType" style="flex: 1; padding: 2px 6px; font-size: 12px; height: 26px;">
                                 <option value="id">Newest (ID)</option>
                                 <option value="score">Score</option>
                             </select>
-                            <select id="rule34SortOrder">
-                                <option value="desc">Descending</option>
-                                <option value="asc">Ascending</option>
+                            <select id="rule34SortOrder" style="margin-left: 6px; padding: 2px 6px; font-size: 12px; height: 26px; width: 60px;">
+                                <option value="desc">Desc</option>
+                                <option value="asc">Asc</option>
                             </select>
                         </div>
-                        <div class="input-group r34-row">
-                            <label>Format:</label>
-                            <select id="rule34Format" onchange="toggleGifExclusion('rule34Format', 'exGif')">
+                        <div class="input-group" style="margin-top: 0;">
+                            <label style="min-width: 60px; font-size: 13px;">Format:</label>
+                            <select id="rule34Format" style="flex: 1; padding: 2px 6px; font-size: 12px; height: 26px;" onchange="toggleGifExclusion('rule34Format', 'exGif')">
                                 <option value="images">Images Only</option>
                                 <option value="gifs">GIFs Only</option>
                                 <option value="all">Images & Videos</option>
                                 <option value="videos">Videos Only</option>
                             </select>
                         </div>
-                        <div class="input-group r34-row">
-                            <label>Exclude:</label>
-                            <div class="r34-checks">
-                                <input type="checkbox" id="exGif"><label for="exGif">GIF</label>
-                                <input type="checkbox" id="exComic"><label for="exComic">Comic</label>
-                                <input type="checkbox" id="ex3D"><label for="ex3D">3D</label>
-                            </div>
+                        <div class="input-group" style="margin-top: 0; display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                            <label style="min-width: 60px; font-size: 13px;">Exclude:</label>
+                            <input type="checkbox" id="exGif"><label for="exGif">GIF</label>
+                            <input type="checkbox" id="exComic"><label for="exComic">Comic</label>
+                            <input type="checkbox" id="ex3D"><label for="ex3D">3D</label>
+                            <input type="checkbox" id="exAI"><label for="exAI">AI</label>
                         </div>
                     </div>
 
                     <div style="display: flex; gap: 10px; margin-top: 10px; align-items: center;">
                         <label style="font-size: 13px;">Limit:</label>
                         <input type="number" id="rule34Limit" value="50" min="0" style="width: 70px; padding: 2px 6px; height: 26px; font-size: 13px;">
-                        <button class="action-btn" onclick="startWorker('rule34')" style="margin-left: auto; padding: 4px 14px; font-size: 13px; height: 28px;">START</button>
-                        <button class="action-btn stop-btn" onclick="stopWorker('rule34')" style="padding: 4px 14px; font-size: 13px; height: 28px;">STOP</button>
+                        <button id="runBtn_rule34" class="action-btn" onclick="toggleWorker('rule34')" style="margin-left: auto; padding: 4px 14px; font-size: 13px; height: 28px;">START</button>
                     </div>
                 </div>
                 
                 <div class="dual-progress-container" id="dualProgress_rule34" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_rule34">0%</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span><span id="dlText_rule34">0%</span></div>
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_rule34"></div></div>
                 </div>
                 
@@ -766,18 +766,20 @@
                 <h2>Safebooru Downloader</h2>
                 <div class="input-group">
                     <label>Tags:</label>
-                    <div style="flex:1; position: relative;">
-                        <input style="width: 100%;" autocomplete="off" type="text" id="safeTag" placeholder="e.g. 1girl blue_hair">
-                        <div id="safeAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                        <div style="display:flex; gap:6px; position: relative;">
+                            <input style="flex:1;" autocomplete="off" type="text" id="safeTag" placeholder="e.g. 1girl blue_hair" onkeydown="if(event.key==='Enter') addSafeTag()">
+                            <div id="safeAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                        </div>
+                        <div id="safeTagsContainer" class="tag-visualizer" style="margin-top: 0;"></div>
                     </div>
                     <label>Limit:</label>
                     <input type="number" id="safeLimit" value="50" min="0" style="width: 80px;">
-                    <button class="action-btn" onclick="startWorker('safe')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('safe')">STOP</button>
+                    <button id="runBtn_safe" class="action-btn" onclick="toggleWorker('safe')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_safe" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_safe">0%</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span><span id="dlText_safe">0%</span></div>
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_safe"></div></div>
                 </div>
                 <div class="console-wrapper">
@@ -790,9 +792,12 @@
                 <h2>Sankaku Downloader</h2>
                 <div class="input-group">
                     <label>Tags:</label>
-                    <div style="flex:1; position: relative;">
-                        <input style="width: 100%;" autocomplete="off" type="text" id="sankakuTag" placeholder="e.g. rem blue_hair">
-                        <div id="sankakuAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                        <div style="display:flex; gap:6px; position: relative;">
+                            <input style="flex:1;" autocomplete="off" type="text" id="sankakuTag" placeholder="e.g. rem blue_hair" onkeydown="if(event.key==='Enter') addSankakuTag()">
+                            <div id="sankakuAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                        </div>
+                        <div id="sankakuTagsContainer" class="tag-visualizer" style="margin-top: 0;"></div>
                     </div>
                     <label>Limit:</label>
                     <input type="number" id="sankakuLimit" value="50" min="0" style="width: 80px;">
@@ -803,12 +808,11 @@
                         <option value="rating:e">NSFW</option>
                     </select>
                     <input type="checkbox" id="sankakuHideBooks"> <label for="sankakuHideBooks">Hide Books/Pools</label>
-                    <button class="action-btn" onclick="startWorker('sankaku')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('sankaku')">STOP</button>
+                    <button id="runBtn_sankaku" class="action-btn" onclick="toggleWorker('sankaku')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_sankaku" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_sankaku">0%</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span><span id="dlText_sankaku">0%</span></div>
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_sankaku"></div></div>
                 </div>
                 <div class="console-wrapper">
@@ -824,13 +828,12 @@
                     <select id="waifuTag" style="width: 160px;"></select>
                     <input type="checkbox" id="waifuNsfw"> <label>NSFW</label>
                     <label>Limit:</label>
-                    <input type="number" id="waifuLimit" value="30" min="0" style="width: 80px;">
-                    <button class="action-btn" onclick="startWorker('waifu')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('waifu')">STOP</button>
+                    <input type="number" id="waifuLimit" value="50" min="0" style="width: 80px;">
+                    <button id="runBtn_waifu" class="action-btn" onclick="toggleWorker('waifu')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_waifu" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_waifu">0%</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span><span id="dlText_waifu">0%</span></div>
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_waifu"></div></div>
                 </div>
                 <div class="console-wrapper">
@@ -843,9 +846,12 @@
                 <h2>Yande.re Downloader</h2>
                 <div class="input-group">
                     <label>Tags:</label>
-                    <div style="flex:1; position: relative;">
-                        <input style="width: 100%;" autocomplete="off" type="text" id="yandeTag" placeholder="e.g. rem blue_hair">
-                        <div id="yandeAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                        <div style="display:flex; gap:6px; position: relative;">
+                            <input style="flex:1;" autocomplete="off" type="text" id="yandeTag" placeholder="e.g. rem blue_hair" onkeydown="if(event.key==='Enter') addYandeTag()">
+                            <div id="yandeAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                        </div>
+                        <div id="yandeTagsContainer" class="tag-visualizer" style="margin-top: 0;"></div>
                     </div>
                     <label>Limit:</label>
                     <input type="number" id="yandeLimit" value="50" min="0" style="width: 80px;">
@@ -855,12 +861,11 @@
                         <option value="rating:q">Questionable</option>
                         <option value="rating:e">NSFW</option>
                     </select>
-                    <button class="action-btn" onclick="startWorker('yande')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('yande')">STOP</button>
+                    <button id="runBtn_yande" class="action-btn" onclick="toggleWorker('yande')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_yande" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_yande">0%</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span><span id="dlText_yande">0%</span></div>
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_yande"></div></div>
                 </div>
                 <div class="console-wrapper">
@@ -871,20 +876,22 @@
 
             <div id="Zero" class="tab-content" style="display: none;">
                 <h2>Zerochan Downloader</h2>
-                <div class="input-group">
-                    <label>Tag Name:</label>
-                    <div style="flex:1; position: relative;">
-                        <input style="width: 100%;" autocomplete="off" type="text" id="zeroTag" placeholder="e.g. Rem (Re:Zero)">
-                        <div id="zeroAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                <div class="input-group" style="align-items: flex-start;">
+                    <label style="padding-top: 8px;">Tag Name:</label>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                        <div style="display:flex; gap:6px; position: relative;">
+                            <input style="flex:1;" autocomplete="off" type="text" id="zeroTag" placeholder="e.g. Rem (Re:Zero)">
+                            <div id="zeroAutosuggest" class="autosuggest-dropdown" style="display:none; right: 0;"></div>
+                        </div>
+                        <div id="zeroTagsContainer" class="tag-visualizer" style="margin-top: 0;"></div>
                     </div>
-                    <label>Limit:</label>
+                    <label style="padding-top: 8px;">Limit:</label>
                     <input type="number" id="zeroLimit" value="50" min="0" style="width: 80px;">
-                    <button class="action-btn" onclick="startWorker('zero')">START</button>
-                    <button class="action-btn stop-btn" onclick="stopWorker('zero')">STOP</button>
+                    <button id="runBtn_zero" class="action-btn" onclick="toggleWorker('zero')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_zero" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
                     
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span>🚀 Downloading...</span><span id="dlText_zero">0%</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;"><span><svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path fill="currentColor" fill-rule="evenodd" d="m6.54699 10.2633 -2.8103 -2.81029c0.30897 -0.5174 0.61681 -1.05238 0.92246 -1.58357l0.00001 -0.00002c1.01621 -1.76605 2.0083 -3.49017 2.93771 -4.38696C10.1208 -1.04151 13.578 0.421966 13.578 0.421966s1.4635 3.457194 -1.0605 5.981154c-0.8894 0.92177 -2.58638 1.89901 -4.33893 2.90824l-0.00002 0 -0.00005 0.00003 -0.00004 0.00003c-0.54602 0.31442 -1.09742 0.63196 -1.63147 0.95188Zm2.14057 -6.53255c0 -0.87355 0.70815 -1.5817 1.58174 -1.5817 0.8735 0 1.5817 0.70815 1.5817 1.5817 0 0.87355 -0.7082 1.58171 -1.5817 1.58171 -0.87359 0 -1.58174 -0.70816 -1.58174 -1.58171Zm-4.0909 -0.23186c-1.41788 -0.37731 -2.74833 0.32133 -3.928816 1.40414 -0.237448 0.21781 -0.187858 0.59878 0.088141 0.76505L2.66123 6.81582l0.0022 -0.00371c0.27484 -0.46023 0.58205 -0.99335 0.89331 -1.53347l0.00003 -0.00005 0.00005 -0.0001 0.00001 -0.00001 0 -0.00001 0.00005 -0.00007c0.35541 -0.61676 0.71608 -1.24263 1.03978 -1.77951ZM7.1842 11.3387l1.14775 1.9052c0.16627 0.276 0.54725 0.3256 0.76505 0.0882 1.0832 -1.1809 1.7819 -2.5118 1.4038 -3.93024 -0.52137 0.3142 -1.0696 0.63054 -1.61266 0.94334l-0.08286 0.0477c-0.54854 0.3159 -1.09139 0.6285 -1.61594 0.9427l-0.00514 0.0031ZM2.62213 9.3429c0.26854 -0.00474 0.53528 0.04466 0.78432 0.14525 0.24903 0.10059 0.47526 0.25031 0.66517 0.44023 0.18992 0.18992 0.33964 0.41612 0.44023 0.66522 0.10059 0.249 0.14999 0.5157 0.14525 0.7843 -0.00474 0.2685 -0.06352 0.5333 -0.17283 0.7787 -0.10875 0.2441 -0.2653 0.4639 -0.4604 0.6464 -0.22177 0.2124 -0.56879 0.3785 -0.89051 0.5063 -0.34303 0.1364 -0.73445 0.2582 -1.0999 0.3579 -0.36667 0.1001 -0.71688 0.1806 -0.98135 0.2331 -0.131335 0.026 -0.247189 0.0463 -0.335989 0.0584 -0.042627 0.0058 -0.08971 0.0112 -0.133167 0.0131 -0.0197 0.0009 -0.055308 0.002 -0.096026 -0.0019 -0.019518 -0.0019 -0.057305 -0.0064 -0.102242 -0.0198 -0.029662 -0.0089 -0.144888 -0.044 -0.240883 -0.156 -0.082221 -0.0959 -0.1046054 -0.196 -0.1099979 -0.2201l-0.0000982 -0.0005c-0.0086444 -0.0386 -0.0111888 -0.0708 -0.0121888 -0.0882 -0.0020745 -0.036 -0.000506 -0.0679 0.0007215 -0.0869 0.0026628 -0.0411 0.0083355 -0.0864 0.0145069 -0.1288 0.0127737 -0.0879 0.0335265 -0.2028 0.0601107 -0.3338 0.0534708 -0.2635 0.1346528 -0.6121 0.2352338 -0.9772 0.10023 -0.3639 0.222304 -0.7535 0.358782 -1.0951 0.128082 -0.3206 0.294153 -0.6661 0.506147 -0.88738 0.18254 -0.19509 0.40233 -0.35164 0.6464 -0.46039 0.24533 -0.10931 0.51017 -0.16809 0.77871 -0.17283Z"/></svg> Downloading...</span><span id="dlText_zero">0%</span></div>
                     <div class="progress-bar-bg"><div class="progress-bar-fill dl-fill" id="dlBar_zero"></div></div>
                 </div>
                 <div class="console-wrapper">
@@ -895,6 +902,25 @@
 
         </div>
         </div>
+    </div>
+
+    <!-- gallery viewer lives at body level so previews work from any tab -->
+    <div id="galleryViewer" class="gallery-viewer" style="display: none;">
+        <button class="gallery-viewer-top-btn close" onclick="closeGalleryViewer()" title="Close (Esc)">✕</button>
+        <button class="gallery-viewer-top-btn fav" id="galleryViewerFav" onclick="toggleViewerFav()" title="Favourite"><svg width="1em" height="1em" viewBox="-1.5 -1.5 19 19" style="vertical-align:-0.125em;"><path fill="none" stroke="currentColor" stroke-width="1.5" d="M16 5c0 -2.20914 -1.7909 -4 -4 -4 -2.20914 0 -4 1.79086 -4 4 0 -2.20914 -1.79086 -4 -4 -4S0 2.79086 0 5c0 6.5 8 10 8 10s8 -3.5 8 -10Z"/></svg></button>
+        <button id="galleryViewerCopy" class="gallery-viewer-top-btn copy" onclick="copyViewerImage()" title="Copy to Clipboard"><svg width="1em" height="1em" viewBox="0 0 48 48" fill="none"><path fill="currentColor" fill-rule="evenodd" d="M17.5535 0.678504C19.0646 0.585621 21.2133 0.5 23.9996 0.5c2.7865 0 4.9354 0.085632 6.4467 0.178522 0.9153 0.056262 1.7297 0.431898 2.3401 1.013578 0.0486 -0.00131 0.0976 -0.00087 0.1469 0.00138 1.9679 0.08977 3.6262 0.20096 4.975 0.31121 3.5231 0.288 6.2657 3.00338 6.5533 6.54187C44.7266 11.8067 45 16.9901 45 24.501c0 7.5109 -0.2734 12.6943 -0.5384 15.9544 -0.2876 3.5385 -3.0302 6.2539 -6.5533 6.5419 -3.0518 0.2494 -7.6879 0.5037 -13.9083 0.5037 -6.2204 0 -10.8565 -0.2543 -13.9083 -0.5037 -3.52314 -0.288 -6.26573 -3.0034 -6.55333 -6.5419C3.2734 37.1953 3 32.0119 3 24.501c0 -7.5109 0.2734 -12.6943 0.53837 -15.95444 0.2876 -3.53848 3.03019 -6.25387 6.55333 -6.54187 1.3488 -0.11025 3.0071 -0.22144 4.9748 -0.3112 0.0494 -0.00225 0.0983 -0.00269 0.1469 -0.00139 0.6104 -0.58168 1.4247 -0.957331 2.3401 -1.013596ZM14.1563 5.74299c-1.4462 0.07621 -2.6925 0.16289 -3.7387 0.24841 -1.58575 0.12962 -2.76472 1.30856 -2.89238 2.8792C7.26992 12.0117 7 17.0863 7 24.501c0 7.4146 0.26992 12.4892 0.52522 15.6304 0.12766 1.5706 1.30663 2.7496 2.89238 2.8792 2.9437 0.2406 7.4711 0.4904 13.5824 0.4904s10.6387 -0.2498 13.5824 -0.4904c1.5858 -0.1296 2.7647 -1.3086 2.8924 -2.8792 0.2553 -3.1412 0.5252 -8.2158 0.5252 -15.6304 0 -7.4147 -0.2699 -12.4893 -0.5252 -15.6304 -0.1277 -1.57064 -1.3067 -2.74958 -2.8924 -2.8792 -1.0463 -0.08553 -2.2925 -0.1722 -3.7389 -0.24841 -0.0339 0.44693 -0.0705 0.86533 -0.1069 1.24504 -0.1654 1.72545 -1.4854 3.11107 -3.2524 3.26737 -1.4089 0.1246 -3.5319 0.2446 -6.4846 0.2446 -2.9525 0 -5.0753 -0.1199 -6.4841 -0.2446 -1.7669 -0.1563 -3.0868 -1.54188 -3.2522 -3.26725 -0.0364 -0.37974 -0.073 -0.79818 -0.107 -1.24516Z" clip-rule="evenodd"></path></svg></button>
+        <button class="gallery-viewer-top-btn trash" onclick="deleteViewerImage()" title="Delete Image"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path fill="currentColor" d="M15.2188 0c0.2229 0.0000058603 0.4394 0.0747674 0.6152 0.211914 0.1757 0.137143 0.3013 0.328695 0.3555 0.544922L16.6182 3H24v2h-3v16c0 0.7957 -0.3163 1.5585 -0.8789 2.1211S18.7957 24 18 24H6c-0.79565 0 -1.55849 -0.3163 -2.12109 -0.8789C3.3163 22.5585 3 21.7957 3 21V5H0V3h7.38184L7.81055 0.756836c0.05418 -0.216227 0.17973 -0.407779 0.35547 -0.544922C8.34176 0.0747674 8.55833 0.0000058603 8.78125 0zM8 19h2V8H8zm6 -11v11h2V8z"></path></svg></button>
+        <button class="gallery-viewer-top-btn focus-mode" onclick="toggleFocusMode()" title="Focus Mode (Hide UI)"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none"><path fill="currentColor" fill-rule="evenodd" d="M23.5732 12.5617c0.236 -0.3372 0.2356 -0.7865 -0.0004 -1.1237 -0.2781 -0.3962 -0.5848 -0.7717 -0.8971 -1.1411 -0.5656 -0.66919 -1.3855 -1.56284 -2.4035 -2.45918 -2.005 -1.76541 -4.926 -3.6717 -8.2731 -3.6717 -3.34714 0 -6.26813 1.90629 -8.27313 3.6717 -1.01798 0.89634 -1.83794 1.78999 -2.40354 2.45918 -0.31211 0.3692 -0.619318 0.7458 -0.897435 1.1416 -0.234715 0.3353 -0.232652 0.7917 0.00217 1.1262 0.2783 0.3946 0.583705 0.77 0.895265 1.1386 0.5656 0.6692 1.38556 1.5628 2.40354 2.4592 2.005 1.7654 4.92599 3.6717 8.27313 3.6717 3.3471 0 6.2681 -1.9063 8.2731 -3.6717 1.018 -0.8964 1.8379 -1.79 2.4035 -2.4592 0.312 -0.3691 0.6187 -0.7447 0.8966 -1.1404zm-8.1467 -0.5616c0 1.8929 -1.5345 3.4274 -3.4274 3.4274s-3.42744 -1.5345 -3.42744 -3.4274 1.53454 -3.42741 3.42744 -3.42741 3.4274 1.53451 3.4274 3.42741" clip-rule="evenodd"></path></svg></button>
+
+        <span class="gallery-viewer-top-btn zoom-label" id="galleryViewerZoom">100%</span>
+
+        <button class="gallery-viewer-nav prev" onclick="viewerNav(-1)" title="Previous (←)">❮</button>
+        <button class="gallery-viewer-nav next" onclick="viewerNav(1)" title="Next (→)">❯</button>
+
+        <img id="galleryViewerImg" src="">
+
+        <!-- پنل نمایش اطلاعات و تگ‌ها (کپسول شیشه‌ای) -->
+        <div id="galleryViewerMeta" class="gallery-viewer-meta"></div>
     </div>
 
     <script src="script.js"></script>

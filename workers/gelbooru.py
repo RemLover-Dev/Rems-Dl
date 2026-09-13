@@ -19,6 +19,9 @@ class GelbooruWorker(BaseWorker):
 
         self.rating_code_map = {"g": "general", "s": "sensitive", "q": "questionable", "e": "explicit"}
         self.rating_label_map = {"general": "Safe", "sensitive": "Sensitive", "questionable": "Questionable", "explicit": "NSFW"}
+        self.rating_display = ""
+        if self.rating:
+            self.rating_display = self.rating_label_map.get(self.rating_code_map.get(self.rating.split(":")[-1], ""), "")
 
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-'))
         self.safe_tag_name = re.sub(r'[\\/*?:"<>|]', "", clean_tag)
@@ -45,7 +48,7 @@ class GelbooruWorker(BaseWorker):
         sem = asyncio.Semaphore(4)
         async def query_one(tag_name):
             async with sem:
-                params = {"page": "dapi", "s": "tag", "q": "index", "name": tag_name, "json": 1}
+                params = {"page": "dapi", "s": "tag", "q": "index", "name": tag_name, "json": 1, "limit": 50}
                 if api_key and user_id:
                     params["api_key"] = api_key
                     params["user_id"] = user_id
@@ -54,8 +57,10 @@ class GelbooruWorker(BaseWorker):
                     if resp.status == 200:
                         data = await resp.json()
                         tags = data.get("tag", [])
-                        if tags:
-                            t = tags[0]
+                        # ponytail: only trust the exact tag, never a near miss
+                        match = next((t for t in tags if str(t.get("name", "")).lower() == tag_name.lower()), None)
+                        if match:
+                            t = match
                             self.tag_cache[tag_name] = TAG_TYPE_MAP.get(t.get("type", 0), "tag")
                         else:
                             self.tag_cache[tag_name] = "tag"
@@ -79,7 +84,7 @@ class GelbooruWorker(BaseWorker):
         return general, artists, characters, copyrights, metadata_tags
 
     async def scraper_task(self):
-        self.log(f"Initializing worker for tag: '{self.api_tag}'")
+        self.log(f"Initializing worker for tag: '{self.original_tag}'" + (f" (rating: {self.rating_display})" if self.rating_display else ""))
         api_key = os.getenv("GELBOORU_API_KEY", "")
         user_id = os.getenv("GELBOORU_USER_ID", "")
 
@@ -108,7 +113,7 @@ class GelbooruWorker(BaseWorker):
                 posts = data.get("post", [])
 
                 if not posts:
-                    if pid == 0: self.log(f"0 images found for '{self.original_tag}'.")
+                    if pid == 0: self.log(f"ZERO images found for '{self.original_tag}'.")
                     else: self.log("End of database reached.")
                     break
 
@@ -165,6 +170,9 @@ class GelbooruWorker(BaseWorker):
                 await asyncio.sleep(self.anti_ban_pause)
 
         actual = self.enqueued_count
+        # ponytail: stopped runs wind down late — never paint summaries over the next run
+        if self.stop_event.is_set():
+            return
         if actual == 0:
             self.log("No new images to download.")
         else:
@@ -172,7 +180,8 @@ class GelbooruWorker(BaseWorker):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        self.log("--- Worker Terminated ---")
+        if self.stop_event.is_set():
+            self.log("--- Worker Terminated ---")
 
 def worker_gelbooru(tag, amount, rating, exclusions, net_config):
     worker = GelbooruWorker(tag, amount, rating, exclusions, net_config)
