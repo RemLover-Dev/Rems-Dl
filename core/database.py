@@ -16,10 +16,50 @@ TAG_HISTORY_FILE = os.path.join(DATABASE_DIR, "tag_history.json")
 FAV_TAGS_FILE = os.path.join(DATABASE_DIR, "fav_tags.json")
 IMAGE_HISTORY_FILE = os.path.join(DATABASE_DIR, "image_history.json")
 UI_CONFIG_FILE = os.path.join(DATABASE_DIR, "ui_config.json")
+LEARNED_TAGS_FILE = os.path.join(DATABASE_DIR, "user_learned_tags.json")
 
 
 class DatabaseManager:
     """Centralized JSON database manager for tags, history, favorites, and UI config."""
+
+    # --- User Learned Tags (Smart Low-Memory Tag Cache) ---
+    @staticmethod
+    def load_learned_tags():
+        if os.path.exists(LEARNED_TAGS_FILE):
+            try:
+                with open(LEARNED_TAGS_FILE, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception:
+                return {}
+        return {}
+
+    @staticmethod
+    def save_learned_tags(data):
+        with open(LEARNED_TAGS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+
+    @staticmethod
+    def add_learned_tag(site, tag):
+        site = str(site).lower().strip()
+        tag = str(tag).strip()
+        if not tag or len(tag) < 2:
+            return
+        tags = DatabaseManager.load_learned_tags()
+        site_list = tags.setdefault(site, [])
+        if tag not in site_list:
+            site_list.insert(0, tag)
+            # Bound per-site learned tags to top 500 to keep memory negligible (< 100 KB)
+            tags[site] = site_list[:500]
+            DatabaseManager.save_learned_tags(tags)
+
+    @staticmethod
+    def get_learned_suggestions(site, query, limit=20):
+        site = str(site).lower().strip()
+        q = str(query).lower().strip()
+        if not q:
+            return []
+        tags = DatabaseManager.load_learned_tags().get(site, [])
+        return [t for t in tags if str(t).lower().startswith(q)][:limit]
 
     @staticmethod
     def load_json(filepath):

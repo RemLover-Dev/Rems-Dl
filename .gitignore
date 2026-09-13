@@ -68,6 +68,10 @@ database/gallery.json
 database/tag_history.json
 database/image_history.json
 database/fav_tags.json
+database/user_learned_tags.json
+database/*_tag_names.json
+database/*_tags.json
+!database/waifu.im_tags.json
 database/thumb_cache/
 database/.gsbooru_tags_state.json
 
