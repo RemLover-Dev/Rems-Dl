@@ -967,7 +967,6 @@ class ZerochanWorker(BaseDownloader):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        self.log("--- Worker Terminated ---")
 
 
 def worker_zerochan(tag, amount, net_config):

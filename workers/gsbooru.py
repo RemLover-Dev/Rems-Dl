@@ -610,10 +610,6 @@ class GsbooruWorker(BaseWorker):
             )
         )
 
-        if self.stop_event.is_set():
-            self.log(
-                "--- Worker Terminated ---"
-            )
 
 
 def worker_gsbooru(

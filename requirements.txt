@@ -1,10 +1,13 @@
 flask
 flask-socketio
 requests
+PySocks
 python-dotenv
 pillow
+imagehash
 aiohttp
 curl_cffi
 rule34Py
 gallery-dl
+pinterest-dl
 pywebview

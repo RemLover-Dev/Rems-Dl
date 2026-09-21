@@ -229,8 +229,6 @@ class AnimeDlWorker(BaseDownloader):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        if self.stop_event.is_set():
-            self.log("--- Worker Terminated ---")
 
 def worker_anime_dl(tag, amount, net_config):
     AnimeDlWorker(tag, amount, net_config).run()

@@ -151,15 +151,11 @@ class PinterestWorker(BaseWorker):
                 await asyncio.to_thread(client.scrape, url=self.url_or_query, num=fetch_num, min_resolution=(self.min_w, self.min_h), on_progress=on_progress)
         except Exception as e:
             self.log(f"Scrape error: {e}")
-            if self.stop_event.is_set():
-                self.log("--- Worker Terminated ---")
             return
 
         medias = collected[:self.amount]
         if not medias:
             self.log("No media found.")
-            if self.stop_event.is_set():
-                self.log("--- Worker Terminated ---")
             return
 
         self.log(f"Collected {len(medias)} media items. Starting download...")
@@ -200,8 +196,6 @@ class PinterestWorker(BaseWorker):
         self.log(f"Downloaded {downloaded} items.")
         self.downloaded_count = downloaded
         self.failed_count = len(medias) - downloaded
-        if self.stop_event.is_set():
-            self.log("--- Worker Terminated ---")
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))

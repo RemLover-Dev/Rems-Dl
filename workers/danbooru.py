@@ -175,8 +175,6 @@ class DanbooruWorker(BaseWorker):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        if self.stop_event.is_set():
-            self.log("--- Worker Terminated ---")
 
 def worker_danbooru(tag, amount, rating, exclusions, net_config):
     worker = DanbooruWorker(tag, amount, rating, exclusions, net_config)
