@@ -160,9 +160,10 @@ class PixivAppAPI:
 
 
 class PixivWorker(BaseDownloader):
-    def __init__(self, tag, amount, rating, exclusions, net_config):
+    def __init__(self, tag, amount, rating, exclusions, net_config, exclude_ai=False):
         super().__init__("pixiv", "Pixiv", amount, net_config)
         self.raw_tag = tag.strip()
+        self.exclude_ai = exclude_ai
         self.rating_filter = rating
         self.exclusions = exclusions
         self.refresh_token = net_config.get("pixiv_refresh_token") or os.getenv("PIXIV_REFRESH_TOKEN", "")
@@ -279,6 +280,10 @@ class PixivWorker(BaseDownloader):
     async def _process_work(self, work):
         work_id = work.get("id")
         if not work_id:
+            return 0
+
+        if self.exclude_ai and work.get("illust_ai_type") == 2:
+            self.log(f"Skipped AI-generated illust {work_id}")
             return 0
 
         if self.exclude_manga and work.get("type") == "manga":

@@ -679,6 +679,7 @@
                         <option value="rating:r18">R-18</option>
                         <option value="rating:r18g">R-18G</option>
                     </select>
+                    <input type="checkbox" id="pixiv-exclude-ai" style="margin-left: 6px;"><label for="pixiv-exclude-ai" style="font-size: 12px;">Exclude AI-generated</label>
                     <button id="runBtn_pixiv" class="action-btn" onclick="toggleWorker('pixiv')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_pixiv" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
@@ -739,7 +740,7 @@
                             <input type="checkbox" id="exGif"><label for="exGif">GIF</label>
                             <input type="checkbox" id="exComic"><label for="exComic">Comic</label>
                             <input type="checkbox" id="ex3D"><label for="ex3D">3D</label>
-                            <input type="checkbox" id="exAI"><label for="exAI">AI</label>
+                            <input type="checkbox" id="rule34-exclude-ai"><label for="rule34-exclude-ai">Exclude AI-generated</label>
                         </div>
                     </div>
 
