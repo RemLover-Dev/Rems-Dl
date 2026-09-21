@@ -29,7 +29,7 @@ from urllib.parse import unquote
 from PIL import Image
 import requests
 
-from core.shared import BaseDownloader, save_history, add_to_gallery, send_tags, MASTER_FOLDER
+from core.shared import BaseDownloader, save_history, add_to_gallery, send_tags, check_duplicate, MASTER_FOLDER
 
 CLIENT_ID = "MOBrBDS8blbauoSck0ZfDbtuzpyT"
 CLIENT_SECRET = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"
@@ -426,6 +426,16 @@ class PixivWorker(BaseDownloader):
                 duration=delays,
                 loop=0,
             )
+
+            # persistent perceptual-hash dedup (see core/shared.py)
+            dup = check_duplicate(gif_path, self.name, work_id)
+            if dup is not None and dup.is_duplicate:
+                try:
+                    os.remove(gif_path)
+                except OSError:
+                    pass
+                self.log(f"[SKIP] Duplicate of {dup.matched_path or 'previous download'} — {gif_name} not saved")
+                return False
 
             self.downloaded_count += 1
             self.dl_history.add(gif_name)

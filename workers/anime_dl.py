@@ -1,7 +1,7 @@
 import os
 import asyncio
 from curl_cffi import requests as curl_requests
-from core.shared import BaseDownloader, MASTER_FOLDER, add_to_gallery, send_tags, write_image_metadata, save_history, build_tagd
+from core.shared import BaseDownloader, MASTER_FOLDER, add_to_gallery, send_tags, write_image_metadata, save_history, build_tagd, check_duplicate
 
 API = "https://api.anime-pictures.net/api/v3"
 PER_PAGE = 80
@@ -40,6 +40,17 @@ class AnimeDlWorker(BaseDownloader):
                 if self.stop_event.is_set():
                     if os.path.exists(filepath): os.remove(filepath)
                     self.enqueued_count -= 1
+                    return False
+
+                # persistent perceptual-hash dedup (see core/shared.py)
+                dup = check_duplicate(filepath, self.name)
+                if dup is not None and dup.is_duplicate:
+                    try:
+                        os.remove(filepath)
+                    except OSError:
+                        pass
+                    self.enqueued_count -= 1
+                    self.log(f"[SKIP] Duplicate of {dup.matched_path or 'previous download'} — {filename} not saved")
                     return False
 
                 self.downloaded_count += 1

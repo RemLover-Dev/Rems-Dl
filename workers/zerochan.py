@@ -19,6 +19,7 @@ from core.shared import (
     send_tags,
     write_image_metadata,
     save_history,
+    check_duplicate,
 )
 from core.gallery_dl_interop import ensure_zerochan_page_html
 
@@ -820,6 +821,17 @@ class ZerochanWorker(BaseDownloader):
                     return False
 
                 os.replace(part_path, filepath)
+
+                # persistent perceptual-hash dedup (see core/shared.py)
+                dup = check_duplicate(filepath, self.name)
+                if dup is not None and dup.is_duplicate:
+                    try:
+                        os.remove(filepath)
+                    except OSError:
+                        pass
+                    self.enqueued_count -= 1
+                    self.log(f"[SKIP] Duplicate of {dup.matched_path or 'previous download'} — {filename} not saved")
+                    return False
 
                 self.downloaded_count += 1
                 self.downloaded_bytes += downloaded

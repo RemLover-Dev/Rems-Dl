@@ -181,6 +181,16 @@ class PinterestWorker(BaseWorker):
                 path = await asyncio.to_thread(downloader.download, media, Path(self.site_root), download_streams=True)
                 filename = os.path.basename(path)
 
+                # persistent perceptual-hash dedup (see core/shared.py)
+                dup = shared.check_duplicate(str(path), self.name, getattr(media, "id", None))
+                if dup is not None and dup.is_duplicate:
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+                    self.log(f"[SKIP] Duplicate of {dup.matched_path or 'previous download'} — {filename} not saved")
+                    continue
+
                 rel = os.path.relpath(str(path), shared.MASTER_FOLDER)
                 tags = [media.alt] if media.alt else []
                 artists = []

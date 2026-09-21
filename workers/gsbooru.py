@@ -19,6 +19,7 @@ from core.shared import (
     add_to_gallery,
     send_tags,
     build_tagd,
+    check_duplicate,
     MASTER_FOLDER,
 )
 
@@ -225,6 +226,17 @@ class GsbooruWorker(BaseWorker):
 
                 # publish under the real name only after full verification
                 os.replace(part_path, filepath)
+
+                # persistent perceptual-hash dedup (see core/shared.py)
+                dup = check_duplicate(filepath, self.name)
+                if dup is not None and dup.is_duplicate:
+                    try:
+                        os.remove(filepath)
+                    except OSError:
+                        pass
+                    self.enqueued_count -= 1
+                    self.log(f"[SKIP] Duplicate of {dup.matched_path or 'previous download'} — {filename} not saved")
+                    return False
 
                 self.downloaded_count += 1
                 self.downloaded_bytes += os.path.getsize(filepath)
