@@ -55,6 +55,11 @@ function normalizeTags(tagsInput) {
 
 function cleanTagDisplay(t) { const s = String(t || "").replace(/_/g, ' '); return (s.charAt(0).toUpperCase() + s.slice(1)).replace(/\.([a-z])/g, (_, c) => '.' + c.toUpperCase()); }
 function escJs(s) { return String(s || "").replace(/\\/g, '\\\\').replace(/"/g, '&quot;').replace(/'/g, "\\'"); }
+// ponytail: focusing any limit box selects its value — one handler, every worker
+let _selBox = null, _selAt = 0;
+document.addEventListener("focusin", e => { if (e.target && e.target.matches('input[type="number"]')) { _selBox = e.target; _selAt = Date.now(); try { e.target.select(); } catch (_) {} } });
+// ponytail: the mouseup ending the click clears the select-all — swallow it only while fresh, so later drag-selects still work
+document.addEventListener("mouseup", e => { if (e.target !== _selBox) { _selBox = null; return; } if (Date.now() - _selAt < 1000) e.preventDefault(); _selBox = null; });
 
 // Streamline heart (web/icons/heart.svg): one asset, both states via paint
 const HEART_PATH = "M16 5c0 -2.20914 -1.7909 -4 -4 -4 -2.20914 0 -4 1.79086 -4 4 0 -2.20914 -1.79086 -4 -4 -4S0 2.79086 0 5c0 6.5 8 10 8 10s8 -3.5 8 -10Z";
@@ -211,7 +216,15 @@ function warmWallpaper(url, cb) {
         delete warmWallpaper._loading[url];
         _drainWpWaiters(url);
     };
-    img.onload = done;
+    // ponytail: onload is bytes-arrived, not painted — a 6MB PNG still needs
+    // decode, and fading onto an undecoded image flashes whatever is beneath
+    const decoded = () => {
+        try {
+            if (img.decode) { img.decode().then(done, done); return; }
+        } catch (e) {}
+        done();
+    };
+    img.onload = decoded;
     img.onerror = done;
     img.src = url;
 }
@@ -224,6 +237,7 @@ let _wpLayerA = null;
 let _wpLayerB = null;
 let _wpFrontIsA = true;
 let _wpFadeTimer = null;
+let _wpGen = 0;
 
 function _ensureWpLayers() {
     if (_wpLayerA) return;
@@ -245,14 +259,16 @@ function updateBackground(tabName) {
     const url = _wpUrl(filename);
 
     _ensureWpLayers();
-    const front = _wpFrontIsA ? _wpLayerA : _wpLayerB;
-    const back = _wpFrontIsA ? _wpLayerB : _wpLayerA;
 
-    if (front.style.backgroundImage.includes(filename)) return; // already showing it
-
-    clearTimeout(_wpFadeTimer);
+    // ponytail: rapid tab switches used to tangle the two layers (roles
+    // flipped sync while images arrived async) — a stale switch now bails
+    const myGen = ++_wpGen;
 
     const crossfade = () => {
+        if (myGen !== _wpGen) return;
+        const front = _wpFrontIsA ? _wpLayerA : _wpLayerB;
+        const back = _wpFrontIsA ? _wpLayerB : _wpLayerA;
+        if (front.style.backgroundImage.includes(filename)) return;
         back.style.transition = 'none';
         back.style.backgroundImage = `url('${url}')`;
         back.style.opacity = '0';
@@ -2440,7 +2456,7 @@ function renderImageHistory() {
             let safeFn = escJs(img.filename || "");
             let fallbackSrc = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><rect width='100' height='100' fill='%231a1c29' rx='8'/><g transform='translate(31,31) scale(2.714)'><path fill='%23888888' fill-rule='evenodd' clip-rule='evenodd' d='M3.05245 2.51408C4.03771 1.6911 5.49493 1.25 7.00004 1.25c1.5051 0 2.96232 0.4411 3.94756 1.26408 1.0842 0.9056 1.706 2.44224 1.7926 4.09343 0.0866 1.6505 -0.3692 3.29207 -1.2845 4.36679 -0.98 1.1509 -2.67952 1.7757 -4.45566 1.7757 -1.77614 0 -3.47564 -0.6248 -4.45569 -1.7757 -0.91524 -1.07472 -1.37107 -2.71629 -1.28451 -4.36679 0.08659 -1.65119 0.70844 -3.18783 1.79261 -4.09343Zm8.69655 -0.95935C10.4845 0.498503 8.71831 0 7.00004 0 5.28177 0 3.51561 0.498503 2.25111 1.55473 0.823564 2.74715 0.11037 4.65779 0.0115513 6.54204 -0.0873029 8.42697 0.42108 10.409 1.59266 11.7848 2.87827 13.2945 4.97748 14 7.00004 14s4.12176 -0.7055 5.40736 -2.2152c1.1716 -1.3758 1.68 -3.35783 1.5811 -5.24276 -0.0988 -1.88425 -0.812 -3.79489 -2.2395 -4.98731ZM7.87691 3.7829c0 -0.34518 -0.27982 -0.625 -0.625 -0.625 -0.34517 0 -0.625 0.27982 -0.625 0.625v0.31657c0 0.34518 0.27983 0.625 0.625 0.625 0.34518 0 0.625 -0.27982 0.625 -0.625V3.7829ZM5.14498 6.01923c0 -0.34518 0.27982 -0.625 0.625 -0.625h0.48689c0.88685 0 1.60579 0.71894 1.60577 1.6058v1.88259c0.33235 0.03652 0.66758 0.10241 1.01035 0.19769 0.33257 0.09243 0.52723 0.43697 0.4348 0.76954 -0.09244 0.33255 -0.43698 0.52725 -0.76955 0.43485 -0.89263 -0.2482 -1.69361 -0.2482 -2.58624 0 -0.33257 0.0924 -0.67711 -0.1023 -0.76954 -0.43485 -0.09244 -0.33257 0.10223 -0.67711 0.4348 -0.76954 0.33762 -0.09384 0.66793 -0.15919 0.99538 -0.19603V7.00003c0.00001 -0.19649 -0.15928 -0.3558 -0.35577 -0.3558h-0.48689c-0.34518 0 -0.625 -0.27983 -0.625 -0.625Z'/></g></svg>`;
             let safeFp = (img.filepath || "").replace(/\\/g, '/').split('/').map(encodeURIComponent).join('/').replace(/'/g, "%27");
-            let siteBadge = `<span style="background: #ff9ff3; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase;">${img.site || "unknown"}</span>`;
+            let siteBadge = `<span style="background: #ff9ff3; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase;">${(img.site || "unknown").replace(/_/g, " ")}</span>`;
             let artistName = (img.tags?.artist || [])[0] || "";
             let artistHtml = artistName ? `<span style="background:rgba(255,140,0,0.15); color:#e67e00; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(255,140,0,0.4);">${cleanTagDisplay(artistName)}</span>` : "";
 
@@ -2836,7 +2852,7 @@ function viewerMetaHtml(img, tagsClickable) {
     } else if (pLow.includes('safe') || pLow.includes('general') || pLow.includes('rating:g')) {
         ratingHtml = `<span style="background:rgba(46, 204, 113, 0.15); color:#2ecc71; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">Rating: Safe</span>`;
     }
-    let siteBadge = `<span style="background: var(--accent-color); color: #000; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase;">${img.site || "unknown"}</span>`;
+    let siteBadge = `<span style="background: var(--accent-color); color: #000; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase;">${(img.site || "unknown").replace(/_/g, " ")}</span>`;
     let artistName = (img.tags?.artist || [])[0] || "";
     let artistHtml = artistName ? `<span onclick="document.getElementById('gallerySearch').value='${escJs(artistName)}'; loadGallery(1); closeGalleryViewer();" style="background:rgba(255,140,0,0.15); color:#e67e00; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(255,140,0,0.4);">${cleanTagDisplay(artistName)}</span>` : "";
 
@@ -3174,7 +3190,7 @@ function toggleViewerFav() {
     async function rescanGallery() { try { let resp = await fetch("/api/gallery/rescan", {method: "POST"}); let data = await resp.json(); if (data.success) { alert(`Rescan complete. Added ${data.added} new images.`); loadGallery(1); populateGallerySiteFilter(); } } catch (e) {} }
     function toggleCheck(el) { const cb = el.querySelector('input[type="checkbox"]'); const menu = el.closest('.gallery-dropdown-menu'); if (cb.value !== '') { const allCheck = menu.querySelector('input[value=""]'); if (allCheck && allCheck.checked) allCheck.checked = false; } cb.checked = !cb.checked; if (menu.id === 'sourceDropdown') onSourceChange(); else if (menu.id === 'ratingDropdown') onRatingChange(); else if (menu.id === 'typeDropdown') onTypeChange(); }
     let _siteFilterSeq = 0;
-    async function populateGallerySiteFilter() { const seq = ++_siteFilterSeq; const container = document.getElementById("sourceDropdown"); const prevSelected = getMultiSelectValues('sourceDropdown'); container.innerHTML = '<div class="dd-item" onclick="toggleCheck(this)"><span>All</span><input type="checkbox" value="" checked></div>'; const params = new URLSearchParams({ search: document.getElementById("gallerySearch").value, type: getMultiSelectValues('typeDropdown'), rating: getMultiSelectValues('ratingDropdown') }); if (galleryFavFilter) params.set("favourites", "true"); try { let resp = await fetch(`/api/gallery/sources?${params}`); const counts = await resp.json(); if (seq !== _siteFilterSeq) return; const sorted = Object.entries(counts).sort((a,b) => a[0].localeCompare(b[0])); sorted.forEach(([site, count]) => { const div = document.createElement("div"); div.className = "dd-item"; div.onclick = function() { toggleCheck(this); }; div.innerHTML = `<span>${site.charAt(0).toUpperCase() + site.slice(1)} (${count})</span><input type="checkbox" value="${site}">`; container.appendChild(div); }); if (prevSelected) { const sel = prevSelected.split(','); document.querySelectorAll('#sourceDropdown input[type="checkbox"]').forEach(cb => { if (cb.value && sel.includes(cb.value)) cb.checked = true; }); } const allCb = container.querySelector('input[value=""]'); if (allCb) allCb.checked = !prevSelected; } catch (e) {} const btn = document.querySelector('[onclick="toggleDropdown(\'sourceDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('sourceDropdown', 'All Sources') + ' ▾'; updateSourceDropdown(); }
+    async function populateGallerySiteFilter() { const seq = ++_siteFilterSeq; const container = document.getElementById("sourceDropdown"); const prevSelected = getMultiSelectValues('sourceDropdown'); container.innerHTML = '<div class="dd-item" onclick="toggleCheck(this)"><span>All</span><input type="checkbox" value="" checked></div>'; const params = new URLSearchParams({ search: document.getElementById("gallerySearch").value, type: getMultiSelectValues('typeDropdown'), rating: getMultiSelectValues('ratingDropdown') }); if (galleryFavFilter) params.set("favourites", "true"); try { let resp = await fetch(`/api/gallery/sources?${params}`); const counts = await resp.json(); if (seq !== _siteFilterSeq) return; const sorted = Object.entries(counts).sort((a,b) => a[0].localeCompare(b[0])); sorted.forEach(([site, count]) => { const div = document.createElement("div"); div.className = "dd-item"; div.onclick = function() { toggleCheck(this); }; div.innerHTML = `<span>${cleanTagDisplay(site)} (${count})</span><input type="checkbox" value="${site}">`; container.appendChild(div); }); if (prevSelected) { const sel = prevSelected.split(','); document.querySelectorAll('#sourceDropdown input[type="checkbox"]').forEach(cb => { if (cb.value && sel.includes(cb.value)) cb.checked = true; }); } const allCb = container.querySelector('input[value=""]'); if (allCb) allCb.checked = !prevSelected; } catch (e) {} const btn = document.querySelector('[onclick="toggleDropdown(\'sourceDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('sourceDropdown', 'All Sources') + ' ▾'; updateSourceDropdown(); }
     function toggleDropdown(id) { const menu = document.getElementById(id); document.querySelectorAll('.gallery-dropdown-menu.open').forEach(m => { if (m.id !== id) m.classList.remove('open'); }); menu.classList.toggle('open'); }
     function onSourceChange() { const checks = document.querySelectorAll('#sourceDropdown input[type="checkbox"]'); const allCheck = checks[0]; if (allCheck.checked) { for (let i = 1; i < checks.length; i++) checks[i].checked = false; } else { let anyChecked = false; for (let i = 1; i < checks.length; i++) { if (checks[i].checked) { anyChecked = true; break; } } if (!anyChecked) allCheck.checked = true; } const btn = document.querySelector('[onclick="toggleDropdown(\'sourceDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('sourceDropdown', 'All Sources') + ' ▾'; updateRatingDropdown(); loadGallery(1); }
     function onRatingChange() { const checks = document.querySelectorAll('#ratingDropdown input[type="checkbox"]'); const allCheck = checks[0]; if (allCheck.checked) { for (let i = 1; i < checks.length; i++) checks[i].checked = false; } else { let anyChecked = false; for (let i = 1; i < checks.length; i++) { if (checks[i].checked) { anyChecked = true; break; } } if (!anyChecked) allCheck.checked = true; } const btn = document.querySelector('[onclick="toggleDropdown(\'ratingDropdown\')"]'); if (btn) btn.textContent = getMultiLabel('ratingDropdown', 'All Ratings') + ' ▾'; updateSourceDropdown(); loadGallery(1); }
