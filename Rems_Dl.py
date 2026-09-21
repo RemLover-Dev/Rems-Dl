@@ -113,7 +113,10 @@ GSBOORU_TAGS_DB = []
 if settings.get("use_proxy"):
     os.environ["HTTP_PROXY"] = str(settings.get("proxy_url") or "")
     os.environ["HTTPS_PROXY"] = str(settings.get("proxy_url") or "")
-    os.environ.pop("no_proxy", None)
+    # ponytail: broken proxy must never blackhole localhost UI — always bypass
+    _np = {h.strip() for h in os.environ.get("no_proxy", "").split(",") if h.strip()}
+    os.environ["no_proxy"] = ",".join(sorted(_np | {"127.0.0.1", "localhost"}))
+    os.environ["NO_PROXY"] = os.environ["no_proxy"]
 else:
     os.environ["HTTP_PROXY"] = ""
     os.environ["HTTPS_PROXY"] = ""
@@ -287,7 +290,10 @@ def config_manager():
         if data.get("use_proxy"):
             os.environ["HTTP_PROXY"] = str(data.get("proxy_url") or "")
             os.environ["HTTPS_PROXY"] = str(data.get("proxy_url") or "")
-            os.environ.pop("no_proxy", None)
+            # ponytail: broken proxy must never blackhole localhost UI — always bypass
+            _np = {h.strip() for h in os.environ.get("no_proxy", "").split(",") if h.strip()}
+            os.environ["no_proxy"] = ",".join(sorted(_np | {"127.0.0.1", "localhost"}))
+            os.environ["NO_PROXY"] = os.environ["no_proxy"]
         else:
             os.environ["HTTP_PROXY"] = ""
             os.environ["HTTPS_PROXY"] = ""
