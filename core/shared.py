@@ -30,8 +30,6 @@ if os.path.isdir(os.path.join(BASE_DIR, LEGACY_DOWNLOAD_DIR_NAME)) and not os.pa
 HISTORY_LOCK = threading.Lock()
 STOP_EVENTS = {}
 
-SAFE_TAGS_DB = []
-WAIFU_TAGS_DB = []
 WAIFU_TAG_MAP = {}
 
 def get_session(site, net_config):
@@ -71,6 +69,17 @@ SITE_CANONICAL = {
 
 def normalize_site(site):
     return SITE_CANONICAL.get(site.lower().strip(), site.lower().strip())
+
+# --- DOWNLOAD FOLDER LAYOUT: site_root / query / <Rating> / files ---
+# Multi-tag queries join with "+" (never appears in a sanitized single tag,
+# so combined folders can't collide with single-tag folders).
+MULTI_TAG_SEP = "+"
+
+def rating_subdir(query_dir, rating_label):
+    """Uniform <query>/<Rating>/ level; files go directly inside. Makedirs."""
+    d = os.path.join(query_dir, rating_label or "Unknown")
+    os.makedirs(d, exist_ok=True)
+    return d
 
 def categorize_tag(tag):
     """Determine the category of a tag based on common booru prefix patterns."""

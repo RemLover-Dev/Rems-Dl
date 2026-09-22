@@ -1,7 +1,7 @@
 import os, re, hashlib
 import asyncio
 from workers import BaseWorker
-from core.shared import load_tag_cache, save_tag_cache, TAG_TYPE_MAP
+from core.shared import load_tag_cache, save_tag_cache, TAG_TYPE_MAP, rating_subdir
 
 
 class KonachanWorker(BaseWorker):
@@ -173,8 +173,7 @@ class KonachanWorker(BaseWorker):
 
                 filename = f"{post.get('id')}.{ext}"
                 rating_label = self.rating_map.get(post_rating, "Unknown")
-                rating_dir = os.path.join(self.tag_dir, rating_label, "images")
-                os.makedirs(rating_dir, exist_ok=True)
+                rating_dir = rating_subdir(self.tag_dir, rating_label)
                 filepath = os.path.join(rating_dir, filename)
 
                 tags_raw = post.get("tags", "")

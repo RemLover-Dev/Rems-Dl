@@ -29,7 +29,7 @@ from urllib.parse import unquote
 from PIL import Image
 import requests
 
-from core.shared import BaseDownloader, save_history, add_to_gallery, send_tags, check_duplicate, MASTER_FOLDER
+from core.shared import BaseDownloader, save_history, add_to_gallery, send_tags, check_duplicate, MASTER_FOLDER, rating_subdir
 
 CLIENT_ID = "MOBrBDS8blbauoSck0ZfDbtuzpyT"
 CLIENT_SECRET = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"
@@ -330,8 +330,7 @@ class PixivWorker(BaseDownloader):
             filename = f"{work_id}{suffix}.{ext}"
 
             rating_label = RATING_CODES.get(x_restrict, "Unknown")
-            rating_dir = os.path.join(self.tag_dir, rating_label, "images")
-            os.makedirs(rating_dir, exist_ok=True)
+            rating_dir = rating_subdir(self.tag_dir, rating_label)
             filepath = os.path.join(rating_dir, filename)
 
             if is_u and ext == "zip":

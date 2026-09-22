@@ -138,8 +138,7 @@ class SafebooruWorker(BaseWorker):
                     continue
 
                 filename = f"{post.get('id')}.{ext}"
-                safe_dir = os.path.join(self.tag_dir, "Safe", "images")
-                os.makedirs(safe_dir, exist_ok=True)
+                safe_dir = shared.rating_subdir(self.tag_dir, "Safe")
                 filepath = os.path.join(safe_dir, filename)
 
                 tags_raw = post.get("tag_string", post.get("tags", ""))

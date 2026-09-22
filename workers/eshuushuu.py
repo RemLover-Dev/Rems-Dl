@@ -67,18 +67,9 @@ class EShuushuuWorker(BaseDownloader):
                         if not t.startswith('-')).strip()
         if not name:
             return ""
-        db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database", "eshuushuu_tags.json")
-        if os.path.exists(db_path):
-            try:
-                with open(db_path, encoding="utf-8") as f:
-                    tags = json.load(f)
-                for t in tags:
-                    if t["title"].lower() == name.lower():
-                        return str(t["tag_id"])
-            except Exception: pass
-        # local DB is absent — resolve live or not at all. A raw-text
-        # tags= query is silently ignored by the site (serves the
-        # homepage feed), so never fall back to one.
+        # offline eshuushuu_tags.json is gone — a raw-text tags= query is
+        # silently ignored by the site (serves the homepage feed), so resolve
+        # live or not at all; never fall back to a tags= text query.
         return self._resolve_tag_id_online(name)
 
     def _resolve_tag_id_online(self, name, _depth=0):

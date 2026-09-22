@@ -14,6 +14,7 @@ All notable changes to Rems Dl will be documented in this file.
 - **Light-Mode Fixes:** Worker filter/info bars, native selects, custom dropdowns, and autosuggest popups are now theme-aware and readable in light mode.
 
 ### Changed
+- **Uniform Download Folder Layout:** All workers now write to `site/query/<Rating>/` with files directly inside the rating folder — the constant `images/` nesting level is gone (Danbooru `video/` and Sankaku `books/` signal splits kept). Multi-tag query folders join sorted tags with `+` (e.g. `ram+rem`) so combined searches always map to one canonical folder. Existing folders on disk are never renamed or moved; the gallery resolves old and new paths, and site-root download history prevents re-downloads across query folders.
 - **Desktop-First Positioning:** The app is documented and built as a native desktop application (`pywebview` window); the Flask backend is internal loopback only. Docker remains the zero-setup fallback for Linux hosts.
 - **gallery-dl Patch Folded Into Code:** Removed the `gallery_dl_patch/` GPL file copy. New `core/gallery_dl_interop.py` (MIT) enables `page-html` on the user's own installed gallery-dl copy at runtime in source runs; frozen builds always use the built-in Zerochan JSON API engine. Nothing to apply by hand, no GPL text shipped.
 - **Leaner Dependencies:** Dropped unused `opencv-python` and `gunicorn` from requirements (smaller builds, no libGL system dependency on Linux).

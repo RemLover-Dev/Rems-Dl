@@ -12,7 +12,6 @@ except Exception:
 import os
 import sys
 import time
-import bisect
 import html
 import threading
 import requests
@@ -97,18 +96,8 @@ DATABASE_DIR = os.path.join(BASE_DIR, "database")
 
 settings = SettingsManager(BASE_DIR)
 
-SAFE_TAGS_DB = []
-YANDE_TAGS_DB = []
-KONA_TAGS_DB = []
-SANKAKU_TAGS_DB = []
-GELBOORU_TAGS_DB = []
-ANIME_TAGS_DB = []
 WAIFU_TAGS_DB = []
 WAIFU_TAG_MAP = {}
-ESHUUSHUU_TAGS_DB = []
-NEKOSAPI_TAGS_DB = []
-NEKOSIA_TAGS_DB = []
-GSBOORU_TAGS_DB = []
 
 if settings.get("use_proxy"):
     os.environ["HTTP_PROXY"] = str(settings.get("proxy_url") or "")
@@ -419,36 +408,6 @@ def get_waifu_tags():
     if WAIFU_TAGS_DB:
         return jsonify([t["name"] for t in WAIFU_TAGS_DB])
     return jsonify(['ass', 'ecchi', 'ero', 'genshin-impact', 'hentai', 'kamisato-ayaka', 'maid', 'marin-kitagawa', 'milf', 'mori-calliope', 'nami', 'one-piece', 'oppai', 'oral', 'paizuri', 'raiden-shogun', 'rem', 'selfies', 'uniform', 'waifu'])
-
-_suggest_sorted = {}
-
-def _suggest(db, query, limit=50):
-    """Prefix search over a tag list. Sorted DBs (sankaku/safe/yande/kona)
-    use bisect (~0.02ms); anything else falls back to a linear scan, which
-    also preserves popularity ordering (danbooru/gelbooru)."""
-    if not db or not query:
-        return []
-    key = id(db)
-    is_sorted = _suggest_sorted.get(key)
-    if is_sorted is None:
-        try:
-            is_sorted = all(db[i] <= db[i + 1] for i in range(len(db) - 1))
-        except TypeError:
-            is_sorted = False
-        _suggest_sorted[key] = is_sorted
-    if is_sorted:
-        out = []
-        i = bisect.bisect_left(db, query, 0, len(db))
-        while i < len(db):
-            t = db[i]
-            if not isinstance(t, str) or not t.startswith(query):
-                break
-            out.append(t)
-            if len(out) >= limit:
-                break
-            i += 1
-        return out
-    return [t for t in db if isinstance(t, str) and t.startswith(query)][:limit]
 
 @app.route("/api/tags/zerochan", methods=["POST"])
 def get_zerochan_suggestions():
@@ -816,9 +775,6 @@ def get_eshuushuu_suggestions():
     data = request.json or {}
     query = (data.get("query", "") or "").lower().strip()
     if len(query) < 2: return jsonify([])
-    local = _suggest(ESHUUSHUU_TAGS_DB, query) if ESHUUSHUU_TAGS_DB else []
-    if local:
-        return jsonify(local)
     try:
         session = get_session("eshuushuu", data.get("net_config", {}))
         resp = session.get("https://e-shuushuu.net/api/v1/tags",
@@ -844,7 +800,7 @@ def get_eshuushuu_suggestions():
             if out: return jsonify(out[:50])
     except Exception:
         pass
-    return jsonify(local)
+    return jsonify([])
 
 @app.route("/api/tags/nekosapi", methods=["POST"])
 def get_nekosapi_suggestions():
@@ -853,8 +809,6 @@ def get_nekosapi_suggestions():
     if len(query) < 2: return jsonify([])
     live = _refresh_nekosapi_live_tags(data.get("net_config", {}))
     out = [t for t in live if t.lower().startswith(query)]
-    if NEKOSAPI_TAGS_DB:
-        out += [t for t in NEKOSAPI_TAGS_DB if t.lower().startswith(query) and t not in out]
     return jsonify(out[:50])
 
 _nekosapi_live_cache = {"tags": [], "at": 0.0}
@@ -925,9 +879,7 @@ def get_nekosia_suggestions():
                 _nekosia_tags_cache["at"] = _time.time()
         except Exception: pass
     live = [t for t in _nekosia_tags_cache["tags"] if t.lower().startswith(query)][:50]
-    if live: return jsonify(live)
-    if not NEKOSIA_TAGS_DB: return jsonify([])
-    return jsonify([t for t in NEKOSIA_TAGS_DB if t.lower().startswith(query)][:50])
+    return jsonify(live)
 
 @app.route("/api/tags/gsbooru", methods=["POST"])
 def get_gsbooru_suggestions():
@@ -1608,7 +1560,17 @@ if __name__ == "__main__":
 
     server_thread = threading.Thread(target=start_server, daemon=True)
     server_thread.start()
-    time.sleep(1.0)
+    # wait until the port actually accepts connections (was: fixed sleep(1.0))
+    import socket as _ready_socket
+    _deadline = time.time() + 5
+    while time.time() < _deadline:
+        try:
+            with _ready_socket.create_connection(("127.0.0.1", port), timeout=0.25):
+                break
+        except OSError:
+            time.sleep(0.03)
+    else:
+        time.sleep(0.5)  # give up waiting; proceed anyway
 
     def _shutdown_now():
         try:

@@ -21,6 +21,7 @@ from core.shared import (
     build_tagd,
     check_duplicate,
     MASTER_FOLDER,
+    rating_subdir,
 )
 
 
@@ -551,15 +552,9 @@ class GsbooruWorker(BaseWorker):
                     )
                 )
 
-                rating_dir = os.path.join(
+                rating_dir = rating_subdir(
                     self.tag_dir,
                     rating_label,
-                    "images"
-                )
-
-                os.makedirs(
-                    rating_dir,
-                    exist_ok=True
                 )
 
                 filepath = os.path.join(

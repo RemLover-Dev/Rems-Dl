@@ -1,6 +1,6 @@
 import os
 import asyncio
-from core.shared import BaseDownloader
+from core.shared import BaseDownloader, MULTI_TAG_SEP
 
 class NekosApiWorker(BaseDownloader):
     def __init__(self, tags, amount, rating, net_config):
@@ -16,7 +16,7 @@ class NekosApiWorker(BaseDownloader):
         self.rating = rating or "safe"
         self.rating_label = {"safe": "Safe", "suggestive": "Sensitive", "borderline": "Questionable", "explicit": "NSFW"}.get(self.rating.lower(), "Safe")
         self.api_base = "https://api.nekosapi.com/v4"
-        self.tag_dir = os.path.join(self.site_root, "_".join(self.tags))
+        self.tag_dir = os.path.join(self.site_root, MULTI_TAG_SEP.join(sorted(self.tags)))
         self.rating_dir = os.path.join(self.tag_dir, self.rating_label)
         os.makedirs(self.rating_dir, exist_ok=True)
 

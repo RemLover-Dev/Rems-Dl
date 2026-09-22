@@ -98,3 +98,6 @@ android/.idea/
 *.iml
 *.hprof
 image_phashes.json
+
+# Persistent perceptual-hash dedup store (runtime state)
+database/dedup.sqlite3

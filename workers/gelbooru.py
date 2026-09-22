@@ -1,7 +1,7 @@
 import os, re
 import asyncio
 from workers import BaseWorker
-from core.shared import load_tag_cache, save_tag_cache, TAG_TYPE_MAP
+from core.shared import load_tag_cache, save_tag_cache, TAG_TYPE_MAP, rating_subdir
 
 
 class GelbooruWorker(BaseWorker):
@@ -157,8 +157,7 @@ class GelbooruWorker(BaseWorker):
                 raw_tags = [t.strip() for t in post.get("tags", "").split() if t.strip()]
                 tags_list, artists, characters, copyrights, metadata_tags = self._categorize_tags(raw_tags)
 
-                rating_dir = os.path.join(self.tag_dir, rating_label, "images")
-                os.makedirs(rating_dir, exist_ok=True)
+                rating_dir = rating_subdir(self.tag_dir, rating_label)
                 filepath = os.path.join(rating_dir, filename)
 
                 if await self.enqueue_download(file_url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):
