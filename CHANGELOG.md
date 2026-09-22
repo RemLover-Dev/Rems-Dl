@@ -20,6 +20,7 @@ All notable changes to Rems Dl will be documented in this file.
 - **Leaner Dependencies:** Dropped unused `opencv-python` and `gunicorn` from requirements (smaller builds, no libGL system dependency on Linux).
 
 ### Fixed
+- **Dedup Deletion Sync:** Deleting an image from the gallery now also removes its duplicate-detection record (with a warning toast if that step fails — file deletion is never blocked by it). The Refresh button now prunes gallery entries *and* dedup records whose files were deleted outside the app, reporting both counts, and the startup rescan sweeps leftover records in the background.
 - **License Documentation:** `LICENSE` now carries third-party notices (MIT own code; `workers/pixiv.py` GPL-2.0-only; gallery-dl external GPL-2.0-only, never bundled; `rule34Py` library GPL-3.0-only). `Rems_Dl.spec` no longer bundles gallery-dl.
 - **`Rems_Dl.spec` Is Now Committed:** `.gitignore` no longer excludes `*.spec`, so the build spec ships with the repo.
 

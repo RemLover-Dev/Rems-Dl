@@ -324,6 +324,25 @@ class DedupStore:
             for i in ids:
                 self._phash_index.pop(i, None)
 
+    def remove_missing_files(self) -> int:
+        """Delete records whose file no longer exists on disk. Returns count removed (FR-004/008)."""
+        with self._lock:
+            rows = self._conn.execute("SELECT id, filepath FROM image_hashes").fetchall()
+        # stat outside the lock (D3)
+        missing = [r["id"] for r in rows if not os.path.isfile(r["filepath"])]
+        if not missing:
+            return 0
+        with self._lock:
+            # batch in chunks to stay under SQLITE_MAX_VARIABLE_NUMBER
+            for start in range(0, len(missing), 500):
+                batch = missing[start:start + 500]
+                placeholders = ",".join("?" * len(batch))
+                self._conn.execute(f"DELETE FROM image_hashes WHERE id IN ({placeholders})", batch)
+            self._conn.commit()
+            for i in missing:
+                self._phash_index.pop(i, None)
+        return len(missing)
+
     def count(self) -> int:
         with self._lock:
             return self._conn.execute("SELECT COUNT(*) AS c FROM image_hashes").fetchone()["c"]

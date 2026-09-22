@@ -3,8 +3,8 @@
 Type=Application
 Name=Rems Dl
 Comment=Multi-threaded image & media scraper with glass-morphism web UI
-Exec=zsh -c "cd /home/hanekawa/RemGodCatcher/Rems-Dl && /home/hanekawa/.pyenv/versions/3.13.7/bin/python Rems_Dl.py"
-Icon=/home/hanekawa/RemGodCatcher/Rems-Dl/web/icons/icon.png
+Exec=sh -c "cd /opt/rems-dl && python3 Rems_Dl.py"
+Icon=/opt/rems-dl/icon/icon.png
 StartupWMClass=Rems_Dl
 Terminal=false
 Categories=Graphics;Network;
