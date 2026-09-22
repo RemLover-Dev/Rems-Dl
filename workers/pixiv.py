@@ -29,7 +29,7 @@ from urllib.parse import unquote
 from PIL import Image
 import requests
 
-from core.shared import BaseDownloader, save_history, add_to_gallery, send_tags, MASTER_FOLDER
+from core.shared import BaseDownloader, save_history, add_to_gallery, send_tags, check_duplicate, MASTER_FOLDER
 
 CLIENT_ID = "MOBrBDS8blbauoSck0ZfDbtuzpyT"
 CLIENT_SECRET = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"
@@ -160,9 +160,10 @@ class PixivAppAPI:
 
 
 class PixivWorker(BaseDownloader):
-    def __init__(self, tag, amount, rating, exclusions, net_config):
+    def __init__(self, tag, amount, rating, exclusions, net_config, exclude_ai=False):
         super().__init__("pixiv", "Pixiv", amount, net_config)
         self.raw_tag = tag.strip()
+        self.exclude_ai = exclude_ai
         self.rating_filter = rating
         self.exclusions = exclusions
         self.refresh_token = net_config.get("pixiv_refresh_token") or os.getenv("PIXIV_REFRESH_TOKEN", "")
@@ -279,6 +280,10 @@ class PixivWorker(BaseDownloader):
     async def _process_work(self, work):
         work_id = work.get("id")
         if not work_id:
+            return 0
+
+        if self.exclude_ai and work.get("illust_ai_type") == 2:
+            self.log(f"Skipped AI-generated illust {work_id}")
             return 0
 
         if self.exclude_manga and work.get("type") == "manga":
@@ -427,6 +432,16 @@ class PixivWorker(BaseDownloader):
                 loop=0,
             )
 
+            # persistent perceptual-hash dedup (see core/shared.py)
+            dup = check_duplicate(gif_path, self.name, work_id)
+            if dup is not None and dup.is_duplicate:
+                try:
+                    os.remove(gif_path)
+                except OSError:
+                    pass
+                self.log(f"[SKIP] Duplicate of {dup.matched_path or 'previous download'} — {gif_name} not saved")
+                return False
+
             self.downloaded_count += 1
             self.dl_history.add(gif_name)
             save_history(self.site_root, self.dl_history)
@@ -442,10 +457,8 @@ class PixivWorker(BaseDownloader):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        if self.stop_event.is_set():
-            self.log("--- Worker Terminated ---")
 
 
-def worker_pixiv(tag, amount, rating, exclusions, net_config):
-    worker = PixivWorker(tag, amount, rating, exclusions, net_config)
+def worker_pixiv(tag, amount, rating, exclusions, net_config, exclude_ai=False):
+    worker = PixivWorker(tag, amount, rating, exclusions, net_config, exclude_ai)
     worker.run()

@@ -315,6 +315,32 @@ def remove_gallery_files(paths):
     return removed
 
 
+# --- PERSISTENT IMAGE DEDUP (SQLite-backed, cross-session) ---
+# ponytail: one helper here, not a copy in every worker — all download paths
+# route through _async_download_file (plus 5 custom paths that import this).
+_DEDUP_SKIP_EXTS = {'.mp4', '.webm', '.mov', '.avi', '.mkv', '.zip'}
+
+def check_duplicate(filepath, site, post_id=None):
+    """Hash `filepath` and check it against everything downloaded so far.
+
+    Returns a DedupResult, or None when dedup doesn't apply (non-image file,
+    unreadable file, or store unavailable) — the caller keeps the file. """
+    ext = os.path.splitext(str(filepath))[1].lower()
+    if ext in _DEDUP_SKIP_EXTS:
+        return None
+    try:
+        from core.dedup_store import get_store
+    except Exception as e:
+        print(f"[DEDUP] store unavailable ({e}) — keeping {filepath}")
+        return None
+    try:
+        pid = str(post_id) if post_id is not None else None
+        return get_store().check_and_add(str(filepath), site=site, post_id=pid)
+    except Exception as e:
+        print(f"[DEDUP] check skipped for {filepath}: {e}")
+        return None
+
+
 # ==========================================
 # === OOP ASYNCIO ENGINE ===
 # ==========================================
@@ -461,6 +487,18 @@ class BaseDownloader:
                 # publish under the real name only after full verification — a
                 # killed app must never leave a truncated file posing as complete
                 os.replace(part_path, filepath)
+
+                # persistent perceptual-hash dedup: skip re-uploads/re-encodes
+                # already seen (any site, any session) before counting success
+                dup = check_duplicate(filepath, self.name)
+                if dup is not None and dup.is_duplicate:
+                    try:
+                        os.remove(filepath)
+                    except OSError:
+                        pass
+                    self.enqueued_count -= 1
+                    self.log(f"[SKIP] Duplicate of {dup.matched_path or 'previous download'} — {filename} not saved")
+                    return False
 
                 self.downloaded_count += 1
                 self.downloaded_bytes += downloaded

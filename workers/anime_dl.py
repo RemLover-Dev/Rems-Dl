@@ -1,7 +1,7 @@
 import os
 import asyncio
 from curl_cffi import requests as curl_requests
-from core.shared import BaseDownloader, MASTER_FOLDER, add_to_gallery, send_tags, write_image_metadata, save_history, build_tagd
+from core.shared import BaseDownloader, MASTER_FOLDER, add_to_gallery, send_tags, write_image_metadata, save_history, build_tagd, check_duplicate
 
 API = "https://api.anime-pictures.net/api/v3"
 PER_PAGE = 80
@@ -40,6 +40,17 @@ class AnimeDlWorker(BaseDownloader):
                 if self.stop_event.is_set():
                     if os.path.exists(filepath): os.remove(filepath)
                     self.enqueued_count -= 1
+                    return False
+
+                # persistent perceptual-hash dedup (see core/shared.py)
+                dup = check_duplicate(filepath, self.name)
+                if dup is not None and dup.is_duplicate:
+                    try:
+                        os.remove(filepath)
+                    except OSError:
+                        pass
+                    self.enqueued_count -= 1
+                    self.log(f"[SKIP] Duplicate of {dup.matched_path or 'previous download'} — {filename} not saved")
                     return False
 
                 self.downloaded_count += 1
@@ -92,7 +103,7 @@ class AnimeDlWorker(BaseDownloader):
         if r2.status_code != 200:
             return []
         kind = {1: "character", 4: "artist", 5: "copyright", 7: "metadata"}
-        return [{"name": t["tag"], "count": t.get("num_pub", t.get("num", 0)),
+        return [{"name": t["tag"].replace("_", " "), "count": t.get("num_pub", t.get("num", 0)),
                  "kind": kind.get(t.get("type"), "tag")}
                 for t in r2.json().get("tags", [])
                 if isinstance(t, dict) and t.get("tag")]
@@ -198,7 +209,8 @@ class AnimeDlWorker(BaseDownloader):
                     artists, characters, copyrights, metadata_tags, general = [], [], [], [], []
                     for t in raw_tags:
                         tag_info = t.get("tag", {}) if isinstance(t, dict) else {}
-                        tag_name = tag_info.get("tag", "")
+                        # ponytail: API tags use underscores — show spaces everywhere
+                        tag_name = tag_info.get("tag", "").replace("_", " ")
                         tag_type = tag_info.get("type", 0)
                         if not tag_name: continue
                         if tag_type == 4: artists.append(tag_name)
@@ -229,8 +241,6 @@ class AnimeDlWorker(BaseDownloader):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        if self.stop_event.is_set():
-            self.log("--- Worker Terminated ---")
 
 def worker_anime_dl(tag, amount, net_config):
     AnimeDlWorker(tag, amount, net_config).run()

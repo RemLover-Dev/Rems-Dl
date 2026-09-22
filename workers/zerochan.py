@@ -5,7 +5,6 @@ import shutil
 import subprocess
 import sys
 import threading
-import time
 import asyncio
 import urllib.parse
 from html.parser import HTMLParser
@@ -19,6 +18,8 @@ from core.shared import (
     send_tags,
     write_image_metadata,
     save_history,
+    build_tagd,
+    check_duplicate,
 )
 from core.gallery_dl_interop import ensure_zerochan_page_html
 
@@ -664,8 +665,8 @@ class ZerochanWorker(BaseDownloader):
 
     @staticmethod
     def _split_category_tags(raw_tags):
-        """Split ['Category:Name', ...] into (general, artists, chars, copyrights, meta)."""
-        general, artists, characters, copyrights, metadata_tags = [], [], [], [], []
+        """Split ['Category:Name', ...] into (general, artists, chars, copyrights, meta, outfits)."""
+        general, artists, characters, copyrights, metadata_tags, outfits = [], [], [], [], [], []
         for entry in raw_tags or []:
             try:
                 text = str(entry).strip()
@@ -683,15 +684,17 @@ class ZerochanWorker(BaseDownloader):
                     artists.append(name)
                 elif c in ("character",):
                     characters.append(name)
-                elif c in ("game", "series", "copyright"):
+                elif c in ("game", "series", "copyright", "studio"):
                     copyrights.append(name)
                 elif c in ("meta", "metadata"):
                     metadata_tags.append(name)
+                elif c in ("outfit",):
+                    outfits.append(name)
                 else:
                     general.append(name)
             except Exception:
                 continue
-        return general, artists, characters, copyrights, metadata_tags
+        return general, artists, characters, copyrights, metadata_tags, outfits
 
     async def _enqueue_post_dict(self, post):
         """Normalize a gallery-dl OR ?json post dict and enqueue. Returns bool."""
@@ -713,22 +716,23 @@ class ZerochanWorker(BaseDownloader):
                 categorized = parse_zerochan_tags(page_html)
                 artists = [t["tag"] for t in categorized if t["category"] in ("mangaka",)]
                 characters = [t["tag"] for t in categorized if t["category"] in ("character",)]
-                copyrights = [t["tag"] for t in categorized if t["category"] in ("game",)]
+                copyrights = [t["tag"] for t in categorized if t["category"] in ("game", "series", "studio")]
                 metadata_tags = [t["tag"] for t in categorized if t["category"] in ("meta",)]
+                outfits = [t["tag"] for t in categorized if t["category"] in ("outfit",)]
                 tags_list = [t["tag"] for t in categorized
-                             if t["category"] in ("theme", "source", "vtuber", "outfit",
-                                                  "series", "group", "studio")]
+                             if t["category"] in ("theme", "source", "vtuber",
+                                                  "group")]
             else:
                 tags_raw = post.get("tags", [])
                 if tags_raw and isinstance(tags_raw, list) and any(":" in str(t) for t in tags_raw):
-                    tags_list, artists, characters, copyrights, metadata_tags = \
+                    tags_list, artists, characters, copyrights, metadata_tags, outfits = \
                         self._split_category_tags(tags_raw)
                 elif isinstance(tags_raw, str):
                     tags_list = [t.strip() for t in tags_raw.replace(",", " ").split() if t.strip()]
-                    artists, characters, copyrights, metadata_tags = [], [], [], []
+                    artists, characters, copyrights, metadata_tags, outfits = [], [], [], [], []
                 else:
                     tags_list = [str(t).strip() for t in (tags_raw or []) if str(t).strip()]
-                    artists, characters, copyrights, metadata_tags = [], [], [], []
+                    artists, characters, copyrights, metadata_tags, outfits = [], [], [], [], []
 
             filename = urllib.parse.unquote(img_url.split('?')[0].split('/')[-1])
             if not filename or '.' not in filename:
@@ -740,16 +744,20 @@ class ZerochanWorker(BaseDownloader):
             return await self.enqueue_download(
                 img_url, filepath, filename, tags_list,
                 artists=artists, characters=characters,
-                copyrights=copyrights, metadata_tags=metadata_tags)
+                copyrights=copyrights, metadata_tags=metadata_tags,
+                outfits=outfits)
         except Exception as e:
             self.log(f"Error processing post {post.get('id', '?')}: {e}")
             return False
 
     # --- queue (overrides aiohttp HEAD size lookup) ---
     async def enqueue_download(self, url, filepath, filename, tags_list, artists=None,
-                               characters=None, copyrights=None, metadata_tags=None):
+                               characters=None, copyrights=None, metadata_tags=None,
+                               outfits=None):
         if artists is None:
             artists = []
+        if outfits is None:
+            outfits = []
         try:
             if filename in self.dl_history or filename in self.queued_items \
                     or os.path.exists(filepath):
@@ -764,7 +772,7 @@ class ZerochanWorker(BaseDownloader):
             self.queued_items.add(filename)
             self.download_queue.put_nowait(
                 (url, filepath, filename, tags_list, artists, file_size,
-                 characters, copyrights, metadata_tags))
+                 characters, copyrights, metadata_tags, outfits))
             self.enqueued_count += 1
             return True
         except Exception as e:
@@ -774,9 +782,11 @@ class ZerochanWorker(BaseDownloader):
     # --- downloader (overrides aiohttp streaming) ---
     async def _async_download_file(self, url, filepath, filename, tags_list, artists,
                                    file_size=0, characters=None, copyrights=None,
-                                   metadata_tags=None):
+                                   metadata_tags=None, outfits=None):
         if artists is None:
             artists = []
+        if outfits is None:
+            outfits = []
         if self.stop_event.is_set():
             self.enqueued_count -= 1
             return False
@@ -821,6 +831,17 @@ class ZerochanWorker(BaseDownloader):
 
                 os.replace(part_path, filepath)
 
+                # persistent perceptual-hash dedup (see core/shared.py)
+                dup = check_duplicate(filepath, self.name)
+                if dup is not None and dup.is_duplicate:
+                    try:
+                        os.remove(filepath)
+                    except OSError:
+                        pass
+                    self.enqueued_count -= 1
+                    self.log(f"[SKIP] Duplicate of {dup.matched_path or 'previous download'} — {filename} not saved")
+                    return False
+
                 self.downloaded_count += 1
                 self.downloaded_bytes += downloaded
                 self.dl_history.add(filename)
@@ -835,14 +856,15 @@ class ZerochanWorker(BaseDownloader):
 
                 rel_path = os.path.relpath(filepath, MASTER_FOLDER)
                 top_tags = ", ".join(tags_list[:5]) if tags_list else "No tags"
+                tagd = build_tagd(artists, characters, copyrights, metadata_tags, outfits)
 
                 write_image_metadata(filepath, tags_list, artists, self.name,
-                                     characters, copyrights, metadata_tags)
+                                     characters, copyrights, metadata_tags, outfits)
                 add_to_gallery(self.name, filename, rel_path, tags_list, artists,
-                               characters, copyrights, metadata_tags)
-                self.log(f"[SUCCESS] Downloaded {filename} ({self.downloaded_count}/{target_total}) [{pct}%] |PATH| {rel_path} |TAGS| {top_tags}")
+                               characters, copyrights, metadata_tags, outfits)
+                self.log(f"[SUCCESS] Downloaded {filename} ({self.downloaded_count}/{target_total}) [{pct}%] |PATH| {rel_path} |TAGS| {top_tags} |TAGD| {tagd}")
                 send_tags(self.name, filename, tags_list, artists, rel_path,
-                          characters, copyrights, metadata_tags)
+                          characters, copyrights, metadata_tags, outfits)
                 return True
 
             except Exception as e:
@@ -967,7 +989,6 @@ class ZerochanWorker(BaseDownloader):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        self.log("--- Worker Terminated ---")
 
 
 def worker_zerochan(tag, amount, net_config):

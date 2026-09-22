@@ -77,8 +77,6 @@ class NekosBestWorker(BaseWorker):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        if self.stop_event.is_set():
-            self.log("--- Worker Terminated ---")
 
 def worker_nekos_best(category, amount, net_config):
     worker = NekosBestWorker(category, amount, net_config)

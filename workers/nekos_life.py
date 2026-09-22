@@ -97,8 +97,6 @@ class NekosLifeWorker(BaseWorker):
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))
-        if self.stop_event.is_set():
-            self.log("--- Worker Terminated ---")
 
 def worker_nekos_life(category, amount, net_config, fmt="both"):
     worker = NekosLifeWorker(category, amount, net_config, fmt)

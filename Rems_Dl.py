@@ -113,7 +113,10 @@ GSBOORU_TAGS_DB = []
 if settings.get("use_proxy"):
     os.environ["HTTP_PROXY"] = str(settings.get("proxy_url") or "")
     os.environ["HTTPS_PROXY"] = str(settings.get("proxy_url") or "")
-    os.environ.pop("no_proxy", None)
+    # ponytail: broken proxy must never blackhole localhost UI — always bypass
+    _np = {h.strip() for h in os.environ.get("no_proxy", "").split(",") if h.strip()}
+    os.environ["no_proxy"] = ",".join(sorted(_np | {"127.0.0.1", "localhost"}))
+    os.environ["NO_PROXY"] = os.environ["no_proxy"]
 else:
     os.environ["HTTP_PROXY"] = ""
     os.environ["HTTPS_PROXY"] = ""
@@ -287,7 +290,10 @@ def config_manager():
         if data.get("use_proxy"):
             os.environ["HTTP_PROXY"] = str(data.get("proxy_url") or "")
             os.environ["HTTPS_PROXY"] = str(data.get("proxy_url") or "")
-            os.environ.pop("no_proxy", None)
+            # ponytail: broken proxy must never blackhole localhost UI — always bypass
+            _np = {h.strip() for h in os.environ.get("no_proxy", "").split(",") if h.strip()}
+            os.environ["no_proxy"] = ",".join(sorted(_np | {"127.0.0.1", "localhost"}))
+            os.environ["NO_PROXY"] = os.environ["no_proxy"]
         else:
             os.environ["HTTP_PROXY"] = ""
             os.environ["HTTPS_PROXY"] = ""
@@ -748,16 +754,6 @@ def get_sankaku_suggestions():
                 f"https://capi-v2.sankakucomplex.com/autocomplete?tag={urllib.parse.quote(query)}")
         except Exception: pass
     return jsonify(_merge_learned_and_online("sankaku", query, names))
-    try:
-        session = get_session("sankaku", data.get("net_config", {}))
-        live = _live_tag_suggest(
-            session,
-            f"https://capi-v2.sankakucomplex.com/autocomplete?tag={urllib.parse.quote(query)}")
-        if live:
-            return jsonify(live)
-    except Exception:
-        pass
-    return jsonify(local)
 
 @app.route("/api/tags/gelbooru", methods=["POST"])
 def get_gelbooru_suggestions():
@@ -1019,9 +1015,13 @@ def _apply_gallery_filters(images, search, site_filters, fav_only, type_filters,
         return tags if isinstance(tags, list) else []
 
     if search:
-        # ponytail: underscores and spaces are equivalent, case already lowered at intake
-        sq = search.replace("_", " ")
-        images = [i for i in images if any(sq in t.lower().replace("_", " ") for t in _get_all_tags(i))]
+        # ponytail: underscores and spaces are equivalent, case already lowered at intake;
+        # split on spaces/commas so multi-tag queries AND-match (every term must hit some tag)
+        terms = [t.replace("_", " ") for t in search.replace(",", " ").split() if t.strip()]
+        def _matches(img):
+            tags = [t.lower().replace("_", " ") for t in _get_all_tags(img)]
+            return all(any(q in t for t in tags) for q in terms)
+        images = [i for i in images if _matches(i)]
     if site_filters:
         images = [i for i in images if i.get("site", "").lower() in site_filters]
     if fav_only:
@@ -1498,7 +1498,7 @@ def handle_start_worker(data):
         threading.Thread(target=worker_pinterest, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("is_search", False), net_config, _safe_int(data.get("min_w", 0), 0), _safe_int(data.get("min_h", 0), 0)), daemon=True).start()
     elif worker == "pixiv":
         net_config["pixiv_refresh_token"] = os.getenv("PIXIV_REFRESH_TOKEN", "")
-        threading.Thread(target=worker_pixiv, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), data.get("exclusions", []), net_config), daemon=True).start()
+        threading.Thread(target=worker_pixiv, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), data.get("rating", ""), data.get("exclusions", []), net_config, data.get("exclude_ai", False)), daemon=True).start()
     elif worker == "eshuushuu":
         from workers.eshuushuu import worker_eshuushuu
         threading.Thread(target=worker_eshuushuu, args=(data.get("tag", ""), _safe_int(data.get("limit", 50), 50), [], data.get("user_id", ""), net_config), daemon=True).start()

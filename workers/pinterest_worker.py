@@ -151,15 +151,11 @@ class PinterestWorker(BaseWorker):
                 await asyncio.to_thread(client.scrape, url=self.url_or_query, num=fetch_num, min_resolution=(self.min_w, self.min_h), on_progress=on_progress)
         except Exception as e:
             self.log(f"Scrape error: {e}")
-            if self.stop_event.is_set():
-                self.log("--- Worker Terminated ---")
             return
 
         medias = collected[:self.amount]
         if not medias:
             self.log("No media found.")
-            if self.stop_event.is_set():
-                self.log("--- Worker Terminated ---")
             return
 
         self.log(f"Collected {len(medias)} media items. Starting download...")
@@ -181,6 +177,16 @@ class PinterestWorker(BaseWorker):
                 path = await asyncio.to_thread(downloader.download, media, Path(self.site_root), download_streams=True)
                 filename = os.path.basename(path)
 
+                # persistent perceptual-hash dedup (see core/shared.py)
+                dup = shared.check_duplicate(str(path), self.name, getattr(media, "id", None))
+                if dup is not None and dup.is_duplicate:
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+                    self.log(f"[SKIP] Duplicate of {dup.matched_path or 'previous download'} — {filename} not saved")
+                    continue
+
                 rel = os.path.relpath(str(path), shared.MASTER_FOLDER)
                 tags = [media.alt] if media.alt else []
                 artists = []
@@ -200,8 +206,6 @@ class PinterestWorker(BaseWorker):
         self.log(f"Downloaded {downloaded} items.")
         self.downloaded_count = downloaded
         self.failed_count = len(medias) - downloaded
-        if self.stop_event.is_set():
-            self.log("--- Worker Terminated ---")
 
     def run(self):
         asyncio.run(self.run_async_loop(self.scraper_task))

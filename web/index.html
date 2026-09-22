@@ -25,7 +25,7 @@
             <div class="tab-group-content" id="group-downloaders">
                 <button class="tab-btn" onclick="openTab('AnimeDL', this)">Anime DL</button>
                 <button class="tab-btn" onclick="openTab('Danbooru', this)">Danbooru</button>
-                <button class="tab-btn" onclick="openTab('EShuushuu', this)">e-shuushuu</button>
+                <button class="tab-btn" onclick="openTab('EShuushuu', this)">E-Shuushuu</button>
                 <button class="tab-btn" onclick="openTab('Gelbooru', this)">Gelbooru</button>
                 <button class="tab-btn" onclick="openTab('Gsbooru', this)">Gsbooru</button>
                 <button class="tab-btn" onclick="openTab('Kona', this)">Konachan</button>
@@ -57,7 +57,7 @@
                     <h2>System Setup</h2>
                     <div class="input-group">
                         <label>Master Folder:</label>
-                        <span id="folderDisplay" style="color: var(--accent-color); flex-grow: 1; font-family: monospace;">Loading...</span>
+                        <span id="folderDisplay" style="color: var(--accent-color); flex-grow: 1; font-family: 'Source Code Pro', 'DejaVu Sans Mono', monospace; -webkit-font-smoothing: antialiased;">Loading...</span>
                         <button class="action-btn" onclick="browseFolder()">Browse</button>
                     </div>
 
@@ -110,7 +110,7 @@
 
             <!-- E-Shuushuu Tab -->
             <div id="EShuushuu" class="tab-content" style="display: none;">
-                <h2>e-shuushuu Downloader</h2>
+                <h2>E-Shuushuu Downloader</h2>
                 <div class="input-group">
                     <label>Tags:</label>
                     <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
@@ -679,6 +679,7 @@
                         <option value="rating:r18">R-18</option>
                         <option value="rating:r18g">R-18G</option>
                     </select>
+                    <input type="checkbox" id="pixiv-exclude-ai" style="margin-left: 6px;"><label for="pixiv-exclude-ai" style="font-size: 12px;">Exclude AI-generated</label>
                     <button id="runBtn_pixiv" class="action-btn" onclick="toggleWorker('pixiv')">START</button>
                 </div>
                 <div class="dual-progress-container" id="dualProgress_pixiv" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
@@ -739,7 +740,7 @@
                             <input type="checkbox" id="exGif"><label for="exGif">GIF</label>
                             <input type="checkbox" id="exComic"><label for="exComic">Comic</label>
                             <input type="checkbox" id="ex3D"><label for="ex3D">3D</label>
-                            <input type="checkbox" id="exAI"><label for="exAI">AI</label>
+                            <input type="checkbox" id="rule34-exclude-ai"><label for="rule34-exclude-ai">Exclude AI-generated</label>
                         </div>
                     </div>
 

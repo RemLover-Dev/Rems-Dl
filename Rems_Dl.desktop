@@ -1,10 +1,11 @@
+#!/usr/bin/env xdg-open
 [Desktop Entry]
 Type=Application
 Name=Rems Dl
 Comment=Multi-threaded image & media scraper with glass-morphism web UI
-Exec=python3 /opt/rems-dl/Rems_Dl.py
-Path=/opt/rems-dl
-Icon=/opt/rems-dl/icon/icon.png
+Exec=zsh -c "cd /home/hanekawa/RemGodCatcher/Rems-Dl && /home/hanekawa/.pyenv/versions/3.13.7/bin/python Rems_Dl.py"
+Icon=/home/hanekawa/RemGodCatcher/Rems-Dl/web/icons/icon.png
+StartupWMClass=Rems_Dl
 Terminal=false
 Categories=Graphics;Network;
-StartupWMClass=Rems Dl
+StartupNotify=true
