@@ -306,9 +306,10 @@ def folder_manager():
 def set_clipboard():
     """Own clipboard via wl-copy/xclip so content survives app exit (WebKit's dies with us).
 
-    ?uri=1: body is a library-relative path — offer file:// as text/uri-list
-    (Klipper/Dolphin thumbnail like a native file copy). Otherwise body bytes
-    are offered as-is with the request Content-Type.
+    ?uri=1: body is one or more library-relative paths (newline-separated) —
+    offer file:// entries as text/uri-list (Klipper/Dolphin thumbnail like a
+    native file copy). Otherwise body bytes are offered as-is with the request
+    Content-Type.
     """
     import shutil
     import subprocess
@@ -317,24 +318,31 @@ def set_clipboard():
         return jsonify({"error": "empty"}), 400
     mime = (request.content_type or "application/octet-stream").split(";")[0].strip() or "application/octet-stream"
     if request.args.get("uri"):
-        rel = data.decode("utf-8", "replace").strip()
         base = os.path.normpath(MASTER_FOLDER)
-        full = os.path.normpath(os.path.join(base, rel))
-        if full != base and not full.startswith(base + os.sep):
-            return jsonify({"error": "forbidden"}), 403
-        if not os.path.isfile(full):
-            name = os.path.basename(rel)
-            full = ""
-            if name:
-                for root, _, files in os.walk(base):
-                    if name in files:
-                        cand = os.path.join(root, name)
-                        if os.path.isfile(cand):
-                            full = cand
-                            break
-            if not full:
-                return jsonify({"error": "not found"}), 404
-        data = Path(full).as_uri().encode("utf-8") + b"\r\n"
+        uris = []
+        for line in data.decode("utf-8", "replace").splitlines():
+            rel = line.strip()
+            if not rel:
+                continue
+            full = os.path.normpath(os.path.join(base, rel))
+            if full != base and not full.startswith(base + os.sep):
+                return jsonify({"error": "forbidden"}), 403
+            if not os.path.isfile(full):
+                name = os.path.basename(rel)
+                full = ""
+                if name:
+                    for root, _, files in os.walk(base):
+                        if name in files:
+                            cand = os.path.join(root, name)
+                            if os.path.isfile(cand):
+                                full = cand
+                                break
+                if not full:
+                    return jsonify({"error": "not found"}), 404
+            uris.append(Path(full).as_uri())
+        if not uris:
+            return jsonify({"error": "empty"}), 400
+        data = ("\r\n".join(uris) + "\r\n").encode("utf-8")
         mime = "text/uri-list"
     if os.environ.get("WAYLAND_DISPLAY") and shutil.which("wl-copy"):
         cmd = ["wl-copy", "--type", mime]
