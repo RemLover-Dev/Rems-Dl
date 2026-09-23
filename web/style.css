@@ -893,11 +893,38 @@ datalist, option {
     .glass-panel { width: 92%; }
     .tab-buttons { width: 280px; max-width: 30vw; }
     .settings-cards-grid { grid-template-columns: 1fr 1fr; }
+    #galleryGrid { gap: 12px; padding: 6px 4px; }
+    .gallery-toolbar { gap: 12px; }
+    .gallery-toolbar input#gallerySearch { min-width: 240px; flex: 1; max-width: 480px; }
+    .gallery-viewer-meta { max-width: 75%; }
+    .gallery-viewer-meta:hover { height: 380px; }
+    .g-meta-title { max-width: 720px; font-size: 14px; }
 }
 @media (min-width: 2560px) {
     .glass-panel { width: 88%; }
     .tab-buttons { width: 300px; }
     h2 { font-size: 22px; }
+    #galleryGrid { gap: 16px; padding: 8px 6px; }
+    .gallery-toolbar { gap: 14px; }
+    .gallery-toolbar input#gallerySearch { min-width: 300px; flex: 1; max-width: 600px; font-size: 14px; padding: 8px 14px; }
+    .gallery-dropdown-btn, .gallery-fav-btn { font-size: 14px; padding: 8px 14px; }
+    .gallery-viewer-meta { max-width: 70%; }
+    .gallery-viewer-meta:hover { height: 450px; }
+    .g-meta-title { max-width: 950px; font-size: 15px; }
+    .g-tag-pill { font-size: 12px; padding: 5px 12px; }
+}
+@media (min-width: 3840px) {
+    .glass-panel { width: 85%; }
+    .tab-buttons { width: 340px; }
+    h2 { font-size: 24px; }
+    #galleryGrid { gap: 20px; padding: 10px 8px; }
+    .gallery-toolbar { gap: 18px; }
+    .gallery-toolbar input#gallerySearch { min-width: 380px; max-width: 750px; font-size: 15px; padding: 10px 16px; }
+    .gallery-dropdown-btn, .gallery-fav-btn { font-size: 15px; padding: 10px 16px; }
+    .gallery-viewer-meta { max-width: 65%; }
+    .gallery-viewer-meta:hover { height: 520px; }
+    .g-meta-title { max-width: 1200px; font-size: 16px; }
+    .g-tag-pill { font-size: 13px; padding: 6px 14px; }
 }
 
 /* ==========================================

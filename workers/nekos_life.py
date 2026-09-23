@@ -1,6 +1,6 @@
 import os
 import asyncio
-from workers import BaseWorker
+from workers import BaseWorker, sanitize_path_component, sanitize_filename, safe_ensure_dir
 
 GIF_ONLY = {"ngif", "hug", "pat", "cuddle", "tickle", "feed", "slap", "kiss", "smug"}
 STATIC_ONLY = {"gecg", "meow", "neko", "lewd", "gasm", "8ball", "avatar", "woof", "fox_girl", "waifu"}
@@ -11,6 +11,7 @@ class NekosLifeWorker(BaseWorker):
     def __init__(self, category, amount, net_config, fmt="both"):
         super().__init__("nekos_life", "Nekos.life", amount, net_config)
         self.category = category
+        self.safe_category = sanitize_path_component(category, fallback="neko")
         self.fmt = fmt
 
         self.gifs_root = os.path.join(self.site_root, "Gifs")
@@ -67,7 +68,8 @@ class NekosLifeWorker(BaseWorker):
             if self.stop_event.is_set():
                 break
 
-            filename = url.split('/')[-1]
+            raw_filename = url.split('/')[-1]
+            filename = sanitize_filename(raw_filename, fallback="neko.jpg")
             is_gif = filename.lower().endswith(".gif")
 
             if self.category in MIXED:
@@ -76,8 +78,8 @@ class NekosLifeWorker(BaseWorker):
                 elif self.fmt == "image" and is_gif:
                     continue
 
-            type_dir = os.path.join(self.gifs_root if is_gif else self.images_root, self.category)
-            os.makedirs(type_dir, exist_ok=True)
+            type_dir = os.path.join(self.gifs_root if is_gif else self.images_root, self.safe_category)
+            safe_ensure_dir(type_dir)
             filepath = os.path.join(type_dir, filename)
 
             if await self.enqueue_download(url, filepath, filename, [self.category], []):

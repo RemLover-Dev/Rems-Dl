@@ -1,4 +1,4 @@
-let globalNetConfig = { "proxy_url": "", "use_proxy": false, "verify_tls": false };
+let globalNetConfig = { "proxy_url": "", "use_proxy": false, "verify_tls": false, "dedup_enabled": true };
 var workerRunning = {};
 let uiConfig = {};
 let currentActiveTheme = 'dark';
@@ -1902,6 +1902,7 @@ window.onload = async function () {
             document.getElementById("retryWait").value = config.retry_wait || 5;
             document.getElementById("antiBanPause").value = config.anti_ban_pause || 3;
             document.getElementById("downloadRetries").value = config.download_retries || 3;
+            if (document.getElementById("dedupEnabled")) document.getElementById("dedupEnabled").checked = config.dedup_enabled !== false;
         }
     } catch (e) { console.error("Config error:", e); }
 
@@ -2267,6 +2268,7 @@ async function saveDownloadSettings() {
     globalNetConfig.retry_wait = document.getElementById("retryWait").value;
     globalNetConfig.anti_ban_pause = document.getElementById("antiBanPause").value;
     globalNetConfig.download_retries = document.getElementById("downloadRetries").value;
+    if (document.getElementById("dedupEnabled")) globalNetConfig.dedup_enabled = document.getElementById("dedupEnabled").checked;
     await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(globalNetConfig) });
     document.getElementById("dlSettingsStatus").textContent = "Saved!";
     setTimeout(()=> document.getElementById("dlSettingsStatus").textContent = "", 2000);
@@ -2588,10 +2590,38 @@ function getMultiLabel(id, noneLabel) {
     if (count === 1 && singleName) return singleName;
     return `${count} selected`;
 }
+function getGalleryTargetTileWidth() {
+    const w = window.innerWidth;
+    if (w >= 3840) return 220; // 4K / UHD
+    if (w >= 2560) return 190; // 1440p / 2K
+    if (w >= 1920) return 165; // 1080p
+    return 148; // Standard / smaller laptop displays
+}
+
+function getGridEstimatedWidth(grid) {
+    if (grid && grid.clientWidth > 50) return grid.clientWidth;
+    const w = window.innerWidth;
+    let sidebarW = 260;
+    let panelPct = 0.95;
+    if (w >= 2560) {
+        sidebarW = 300;
+        panelPct = 0.88;
+    } else if (w >= 1920) {
+        sidebarW = 280;
+        panelPct = 0.92;
+    } else if (w <= 768) {
+        sidebarW = 0;
+        panelPct = 0.98;
+    }
+    return Math.max(280, Math.floor(w * panelPct - sidebarW - 32));
+}
+
 let galleryCols = 0;
 function galleryPerPage() {
     const grid = document.getElementById("galleryGrid");
-    galleryCols = Math.max(2, Math.floor(((grid && grid.clientWidth ? grid.clientWidth : window.innerWidth - 40)) / 148));
+    const availW = getGridEstimatedWidth(grid);
+    const targetW = getGalleryTargetTileWidth();
+    galleryCols = Math.max(2, Math.floor(availW / targetW));
     if (grid) grid.style.gridTemplateColumns = `repeat(${galleryCols}, minmax(0, 1fr))`;
     let rows;
     try {
@@ -2600,19 +2630,23 @@ function galleryPerPage() {
             const probe = document.createElement('div');
             probe.className = 'gallery-card';
             probe.style.visibility = 'hidden';
+            probe.style.position = 'absolute';
+            probe.style.pointerEvents = 'none';
             grid.appendChild(probe);
-            const tileH = probe.offsetHeight || 148;
+            const tileH = probe.offsetHeight || targetW;
             probe.remove();
             const cs = getComputedStyle(grid);
-            const gap = parseFloat(cs.rowGap) || 8;
+            const gap = parseFloat(cs.rowGap) || (window.innerWidth >= 2560 ? 16 : (window.innerWidth >= 1920 ? 12 : 8));
             const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
             const avail = grid.clientHeight - padY;
             rows = Math.max(1, Math.floor((avail + gap) / (tileH + gap)));
         } else {
-            rows = Math.max(1, Math.floor((window.innerHeight - 280) / 158));
+            const estH = Math.max(300, window.innerHeight * 0.94 - 180);
+            const gap = window.innerWidth >= 2560 ? 16 : (window.innerWidth >= 1920 ? 12 : 8);
+            rows = Math.max(1, Math.floor((estH + gap) / (targetW + gap)));
         }
     } catch (e) {
-        rows = Math.max(1, Math.floor((window.innerHeight - 280) / 158));
+        rows = Math.max(1, Math.floor((window.innerHeight - 240) / (targetW + 10)));
     }
     return Math.min(400, Math.max(24, galleryCols * rows));
 }
@@ -3155,7 +3189,36 @@ function toggleViewerFav() {
         else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') { copyViewerImage(); }
     });
     let _resizeTimer = null;
-    window.addEventListener('resize', function() { clearTimeout(_resizeTimer); _resizeTimer = setTimeout(() => { if (document.getElementById("galleryGrid")) loadGallery(); }, 300); });
+    window.addEventListener('resize', function() {
+        clearTimeout(_resizeTimer);
+        _resizeTimer = setTimeout(() => {
+            const galleryTab = document.getElementById("Gallery");
+            if (galleryTab && galleryTab.style.display !== "none") {
+                loadGallery();
+            }
+        }, 200);
+    });
+
+    try {
+        const _gridEl = document.getElementById("galleryGrid");
+        if (_gridEl && typeof ResizeObserver !== "undefined") {
+            let _lastW = 0;
+            const _gridObserver = new ResizeObserver(entries => {
+                for (const entry of entries) {
+                    const w = entry.contentRect.width;
+                    if (w > 50 && Math.abs(w - _lastW) > 30) {
+                        _lastW = w;
+                        const galleryTab = document.getElementById("Gallery");
+                        if (galleryTab && galleryTab.style.display !== "none") {
+                            clearTimeout(_resizeTimer);
+                            _resizeTimer = setTimeout(() => loadGallery(), 150);
+                        }
+                    }
+                }
+            });
+            _gridObserver.observe(_gridEl);
+        }
+    } catch (e) {}
     let viewerDrag = { active: false, startX: 0, startY: 0, imgX: 0, imgY: 0 };
     document.getElementById("galleryViewer").addEventListener('click', function(e) { if (e.target === this) closeGalleryViewer(); });
     let zoomThrottle = 0;

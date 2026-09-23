@@ -1,6 +1,6 @@
 import os
 import asyncio
-from core.shared import BaseDownloader
+from core.shared import BaseDownloader, sanitize_path_component, sanitize_filename, safe_ensure_dir
 
 class NekosApiWorker(BaseDownloader):
     def __init__(self, tags, amount, rating, net_config):
@@ -16,9 +16,11 @@ class NekosApiWorker(BaseDownloader):
         self.rating = rating or "safe"
         self.rating_label = {"safe": "Safe", "suggestive": "Sensitive", "borderline": "Questionable", "explicit": "NSFW"}.get(self.rating.lower(), "Safe")
         self.api_base = "https://api.nekosapi.com/v4"
-        self.tag_dir = os.path.join(self.site_root, "_".join(self.tags))
-        self.rating_dir = os.path.join(self.tag_dir, self.rating_label)
-        os.makedirs(self.rating_dir, exist_ok=True)
+        safe_tag_folder = sanitize_path_component("_".join(self.tags), fallback="kemonomimi")
+        self.tag_dir = os.path.join(self.site_root, safe_tag_folder)
+        safe_rating_label = sanitize_path_component(self.rating_label, fallback="Safe")
+        self.rating_dir = os.path.join(self.tag_dir, safe_rating_label)
+        safe_ensure_dir(self.rating_dir)
 
     def _validate_rating(self):
         valid = {"safe", "suggestive", "borderline", "explicit"}
@@ -65,7 +67,7 @@ class NekosApiWorker(BaseDownloader):
                 ext = url.rsplit(".", 1)[-1].split("?")[0]
                 if ext.lower() not in {"jpg", "jpeg", "png", "webp", "gif", "bmp", "tiff"}:
                     ext = "jpg"
-                filename = f"{img_id}.{ext}"
+                filename = sanitize_filename(f"{img_id}.{ext}", fallback=f"nekosapi_{img_id}.jpg")
                 filepath = os.path.join(self.rating_dir, filename)
                 tag_list = self.tags + [t for t in img.get("tags", []) if t]
                 artist_name = img.get("artist_name")

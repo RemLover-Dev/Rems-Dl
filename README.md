@@ -188,14 +188,95 @@ Rems Dl/
 
 ---
 
-## 🐧 Run on Linux / Docker
+## 📦 Pre-Built Downloads & Releases
 
-Two options: a **native Linux binary** (desktop app) or a **zero-setup Docker image** (headless server, nothing to install on the host -- no Python, no WebKitGTK, no browser profile).
+Automated GitHub Actions workflows build and test every release for Windows and Linux with standardized filenames:
 
-### Option A -- Docker (no host dependencies)
+| Platform | Format | File Name | Description |
+|----------|--------|-----------|-------------|
+| **Windows (x64)** | **Installer** | `Rems-Dl-Windows-x64-Setup.exe` | **Recommended:** Complete installer with Desktop/Start Menu shortcuts, custom icon, and **automatic Microsoft Visual C++ Redistributable detection & installation**. |
+| **Windows (x64)** | **Portable** | `Rems-Dl-Windows-x64-Portable.zip` | Standalone portable folder. Extract and double-click `Rems_Dl.exe`. |
+| **Linux (x86_64)** | **Tarball** | `Rems-Dl-Linux-x86_64.tar.gz` | Standalone Linux application with desktop integration files. |
 
-Pull the published image (or build it yourself with `docker build -t rems-dl .`):
+---
 
+## 🪟 Windows Setup & Installation
+
+### Option 1: Windows Installer (Recommended)
+1. Download **`Rems-Dl-Windows-x64-Setup.exe`** from [Releases](../../releases).
+2. Run the installer.
+3. The installer automatically detects if your system has the required **Microsoft Visual C++ 2015-2022 Redistributable (x64)** installed. If missing, it will install it for you silently to prevent any missing C++ runtime DLL errors.
+4. Shortcuts with the custom Rems Dl icon will be created on your Desktop and Start Menu.
+5. The application will use its custom icon in the Windows taskbar rather than the default Python icon.
+
+### Option 2: Portable Zip
+1. Download **`Rems-Dl-Windows-x64-Portable.zip`**.
+2. Extract the archive anywhere on your PC.
+3. Run `Rems_Dl.exe`.
+
+---
+
+## 🐧 Run and Configure on Linux
+
+Rems Dl runs on Linux as either a **native desktop application** (via WebKitGTK), a **headless web server** in your favorite browser, or inside **Docker**.
+
+### 1. System Requirements for Native Linux Desktop GUI
+If you want to run the native desktop window rather than the browser UI, ensure WebKitGTK and PyGObject are installed on your distribution:
+
+- **Debian / Ubuntu / Linux Mint / Pop!_OS:**
+  ```bash
+  sudo apt update
+  sudo apt install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1
+  ```
+  *(On older Ubuntu 20.04/Debian 11 releases, use `gir1.2-webkit2-4.0` instead).*
+
+- **Arch Linux / Manjaro:**
+  ```bash
+  sudo pacman -S python-gobject webkit2gtk-4.1 gtk3
+  ```
+
+- **Fedora / RHEL:**
+  ```bash
+  sudo dnf install -y python3-gobject webkit2gtk4.1 gtk3
+  ```
+
+### 2. Running the Pre-Built Linux Standalone Package
+1. Download **`Rems-Dl-Linux-x86_64.tar.gz`** from [Releases](../../releases).
+2. Extract and launch:
+   ```bash
+   tar -xzf Rems-Dl-Linux-x86_64.tar.gz
+   cd Rems_Dl
+   ./Rems_Dl
+   ```
+
+### 3. Integrating with Linux Desktop Menu
+To add Rems Dl to your application launcher with its custom icon:
+```bash
+# Copy desktop entry and update database
+cp Rems_Dl.desktop ~/.local/share/applications/
+update-desktop-database ~/.local/share/applications/
+```
+
+### 4. Running from Source on Linux
+```bash
+git clone https://github.com/RemLover-Dev/Rems-Dl.git
+cd Rems-Dl
+pip install -r requirements.txt
+python Rems_Dl.py
+```
+
+### 5. Automatic Fallback & Headless / Server Mode
+- **Missing WebKitGTK?** No problem! If `pywebview` or WebKitGTK is not installed on your system, Rems Dl will automatically notify you and launch smoothly in your default web browser at `http://127.0.0.1:<port>`.
+- **Headless Server / Remote VPS / SSH:** Run without opening a window:
+  ```bash
+  REMS_HEADLESS=1 python Rems_Dl.py
+  # or
+  python Rems_Dl.py --headless
+  ```
+  The app will bind to `0.0.0.0:$PORT` (default: 5000) and allow external access from any device on your network.
+
+### 6. Running with Docker (Zero Host Dependencies)
+Pull and run the official image:
 ```bash
 docker pull ghcr.io/remlover-dev/rems-dl:latest
 docker run -d -p 5000:5000 \
@@ -203,31 +284,7 @@ docker run -d -p 5000:5000 \
   -v "$(pwd)/database:/app/database" \
   --name rems-dl-app ghcr.io/remlover-dev/rems-dl:latest
 ```
-
-(The volume mounts keep your downloads and tag databases outside the container so they survive rebuilds.)
-
-Then open `http://localhost:5000` in your browser. The image runs with `REMS_HEADLESS=1`: it serves on `0.0.0.0:$PORT` and stays alive across tab connects/disconnects.
-
-### Option B -- Native Linux desktop app
-
-Download `Rems_Dl-Linux.tar.gz` from [GitHub Releases](../../releases), or run from source:
-
-```bash
-pip install -r requirements.txt
-python Rems_Dl.py
-```
-A native desktop window opens via `pywebview` (needs WebKitGTK on most distros, e.g. `sudo apt install python3-gi gir1.2-webkit2-4.1`). Without it, the UI opens in your browser at a `http://127.0.0.1:<port>` loopback address.
-
-### Linux desktop launcher
-`Rems_Dl.desktop` registers the app in your application menu using `icon/icon.png` (512×512):
-```bash
-sudo cp -r . /opt/rems-dl
-cp Rems_Dl.desktop ~/.local/share/applications/
-update-desktop-database ~/.local/share/applications/
-```
-
-### Build a Linux binary on WSL
-From Windows, open your distro (`wsl -d Ubuntu`), mount this folder, and build with PyInstaller -- full steps are in [Build from Source](#-build-from-source-exe--binary) below.
+Then open `http://localhost:5000` in your browser.
 
 ---
 

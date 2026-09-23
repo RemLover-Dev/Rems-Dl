@@ -1,6 +1,6 @@
 import os
 import asyncio
-from core.shared import BaseDownloader
+from core.shared import BaseDownloader, sanitize_path_component, sanitize_filename, safe_ensure_dir
 
 class NekosiaWorker(BaseDownloader):
     def __init__(self, tag, amount, rating, net_config):
@@ -14,9 +14,11 @@ class NekosiaWorker(BaseDownloader):
         self.rating = rating or "safe"
         self.rating_label = {"safe": "Safe", "sensitive": "Sensitive"}.get(self.rating.lower(), "Safe")
         self.api_base = "https://api.nekosia.cat/api/v1/images"
-        self.tag_dir = os.path.join(self.site_root, self.tag)
-        self.rating_dir = os.path.join(self.tag_dir, self.rating_label)
-        os.makedirs(self.rating_dir, exist_ok=True)
+        safe_tag_folder = sanitize_path_component(self.tag, fallback="catgirl")
+        self.tag_dir = os.path.join(self.site_root, safe_tag_folder)
+        safe_rating_label = sanitize_path_component(self.rating_label, fallback="Safe")
+        self.rating_dir = os.path.join(self.tag_dir, safe_rating_label)
+        safe_ensure_dir(self.rating_dir)
 
     async def scraper_task(self):
         self.log(f"Initializing worker for tag: {self.tag}")
@@ -94,7 +96,7 @@ class NekosiaWorker(BaseDownloader):
                 
                 img_id = img.get("id", "unknown")
                 ext = url_data.get("extension", "jpg")
-                filename = f"{img_id}.{ext}"
+                filename = sanitize_filename(f"{img_id}.{ext}", fallback=f"nekosia_{img_id}.jpg")
                 filepath = os.path.join(self.rating_dir, filename)
                 
                 tags = img.get("tags", [])

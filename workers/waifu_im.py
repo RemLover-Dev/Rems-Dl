@@ -1,6 +1,6 @@
 import os, re
 import asyncio
-from workers import BaseWorker
+from workers import BaseWorker, sanitize_path_component, sanitize_filename, safe_ensure_dir
 import core.shared as shared
 
 
@@ -22,10 +22,10 @@ class WaifuImWorker(BaseWorker):
         self.retry_wait = int(net_config.get("retry_wait", 5))
 
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-'))
-        self.safe_tag = re.sub(r'[\\/*?:"<>|]', "", clean_tag)
+        self.safe_tag = sanitize_path_component(clean_tag, fallback="waifu")
         self.tag_dir = os.path.join(self.site_root, self.safe_tag)
         for sub in ("Safe", "NSFW"):
-            os.makedirs(os.path.join(self.tag_dir, sub), exist_ok=True)
+            safe_ensure_dir(os.path.join(self.tag_dir, sub))
 
     def get_tags(self):
         return [self.original_tag]
@@ -81,7 +81,8 @@ class WaifuImWorker(BaseWorker):
                 if not url:
                     continue
 
-                filename = url.split('/')[-1]
+                raw_filename = url.split('/')[-1]
+                filename = sanitize_filename(raw_filename, fallback=f"waifu_{img.get('id', 'item')}.jpg")
                 subdir = "NSFW" if img.get("isNsfw") else "Safe"
                 filepath = os.path.join(self.tag_dir, subdir, filename)
 

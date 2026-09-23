@@ -44,12 +44,18 @@ env/
 # only the outputs below are ignored.
 build/
 dist/
+dist_installer/
+dist_linux/
+dependencies/
 *.spec
 !Rems_Dl.spec
 
 # Locally-made release archives (CI attaches these to GitHub Releases)
 Rems_Dl-*.zip
 Rems_Dl-*.tar.gz
+Rems-Dl-*.zip
+Rems-Dl-*.tar.gz
+Rems-Dl-*.exe
 *.sha256
 
 # Logs & debug dumps
@@ -74,6 +80,12 @@ database/*_tags.json
 !database/waifu.im_tags.json
 database/thumb_cache/
 database/.gsbooru_tags_state.json
+database/*.sqlite3
+database/*.sqlite3-shm
+database/*.sqlite3-wal
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
 
 # Do not upload multi agent and gemini dump
 multi_agent.py

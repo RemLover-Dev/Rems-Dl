@@ -1,6 +1,6 @@
 import os, re, hashlib
 import asyncio
-from workers import BaseWorker
+from workers import BaseWorker, sanitize_path_component, sanitize_filename, safe_ensure_dir
 from core.shared import load_tag_cache, save_tag_cache, TAG_TYPE_MAP
 
 
@@ -19,9 +19,9 @@ class KonachanWorker(BaseWorker):
         self.rating_map = {"s": "Safe", "q": "Questionable", "e": "NSFW"}
 
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-'))
-        self.safe_tag = re.sub(r'[\\/*?:"<>|]', "", clean_tag)
+        self.safe_tag = sanitize_path_component(clean_tag, fallback="konachan")
         self.tag_dir = os.path.join(self.site_root, self.safe_tag)
-        os.makedirs(self.tag_dir, exist_ok=True)
+        safe_ensure_dir(self.tag_dir)
 
     def get_tags(self):
         return [self.original_tag]
@@ -171,10 +171,10 @@ class KonachanWorker(BaseWorker):
                 if ext not in ["jpg", "jpeg", "png", "gif", "webp", "mp4", "webm"]:
                     continue
 
-                filename = f"{post.get('id')}.{ext}"
-                rating_label = self.rating_map.get(post_rating, "Unknown")
+                filename = sanitize_filename(f"{post.get('id')}.{ext}", fallback=f"kona_{post.get('id', 'item')}.jpg")
+                rating_label = sanitize_path_component(self.rating_map.get(post_rating, "Unknown"), fallback="Unknown")
                 rating_dir = os.path.join(self.tag_dir, rating_label, "images")
-                os.makedirs(rating_dir, exist_ok=True)
+                safe_ensure_dir(rating_dir)
                 filepath = os.path.join(rating_dir, filename)
 
                 tags_raw = post.get("tags", "")

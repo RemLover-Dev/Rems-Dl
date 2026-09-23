@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rem God Catcher</title>
+    <title>Rems Dl</title>
+    <link rel="icon" type="image/x-icon" href="icons/icon.ico">
+    <link rel="icon" type="image/png" href="icon.png">
     <link rel="stylesheet" href="vendor/fonts.css">
     <link rel="stylesheet" href="style.css">
     <script src="vendor/socket.io.min.js"></script>
@@ -608,6 +610,10 @@
                                 <div class="field-row" style="flex-direction: column; align-items: flex-start; gap: 4px;"><label style="min-width: unset; font-size: 12px; opacity: 0.8;">Retry Wait (s)</label><input type="number" id="retryWait" value="5" style="width: 100%;"></div>
                                 <div class="field-row" style="flex-direction: column; align-items: flex-start; gap: 4px;"><label style="min-width: unset; font-size: 12px; opacity: 0.8;">Anti-Ban Pause (s)</label><input type="number" id="antiBanPause" value="3" step="0.5" style="width: 100%;"></div>
                                 <div class="field-row" style="flex-direction: column; align-items: flex-start; gap: 4px;"><label style="min-width: unset; font-size: 12px; opacity: 0.8;">Download Retries</label><input type="number" id="downloadRetries" value="3" min="1" style="width: 100%;"></div>
+                            </div>
+                            <div class="field-row" style="flex-direction: row; align-items: center; gap: 8px; margin-top: 10px;">
+                                <input type="checkbox" id="dedupEnabled" checked style="width: 18px; height: 18px; cursor: pointer;">
+                                <label for="dedupEnabled" style="font-size: 13px; opacity: 0.95; cursor: pointer;">Enable Perceptual Image Deduplication (automatically skip duplicates & re-uploads across scrapers)</label>
                             </div>
                             <div style="display: flex; align-items: center; gap: 12px; margin-top: 12px;">
                                 <button class="action-btn" onclick="saveDownloadSettings()">💾 Save Download Settings</button>

@@ -9,6 +9,15 @@ try:
 except Exception:
     pass
 
+import sys
+if sys.platform == "win32":
+    try:
+        import ctypes
+        # Set explicit AppUserModelID so Windows taskbar shows the app icon instead of Python's
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('RemLoverDev.RemsDl.App.1.0')
+    except Exception:
+        pass
+
 import os
 import sys
 import time
@@ -96,6 +105,8 @@ from workers.pixiv import worker_pixiv
 DATABASE_DIR = os.path.join(BASE_DIR, "database")
 
 settings = SettingsManager(BASE_DIR)
+import core.database
+core.database._settings_instance = settings
 
 SAFE_TAGS_DB = []
 YANDE_TAGS_DB = []
@@ -1591,16 +1602,30 @@ if __name__ == "__main__":
     threading.Thread(target=_warm_tag_dbs, daemon=True).start()
     threading.Thread(target=startup_rescan, daemon=True).start()
 
+    is_headless = (
+        os.environ.get("REMS_HEADLESS", "").lower() in ("1", "true", "yes")
+        or any(arg in sys.argv for arg in ("--headless", "--server", "--no-window"))
+    )
+
+    port = int(os.environ.get("PORT", 0)) or _pick_loopback_port()
+    host = "0.0.0.0" if is_headless else "127.0.0.1"
+    url = f"http://{'localhost' if host == '0.0.0.0' else '127.0.0.1'}:{port}"
+
+    if is_headless:
+        print(f"Starting Rems Dl in headless/server mode on {url} ...")
+        socketio.run(app, host=host, port=port, debug=False, allow_unsafe_werkzeug=True)
+        sys.exit(0)
+
     try:
         import webview as _pywebview
     except ImportError:
-        print("CRITICAL ERROR: pywebview is not installed.")
-        print("This application requires pywebview to run as a native desktop app.")
-        print("Please run: pip install pywebview")
-        sys.exit(1)
+        print("NOTE: pywebview is not installed or GUI libraries are missing.")
+        print(f"Starting Rems Dl in web browser mode on {url} ...")
+        import webbrowser
+        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+        socketio.run(app, host="127.0.0.1", port=port, debug=False, allow_unsafe_werkzeug=True)
+        sys.exit(0)
 
-    port = _pick_loopback_port()
-    url = f"http://127.0.0.1:{port}"
     print(f"Starting Rems Dl desktop app ({url} on internal loopback) ...")
 
     def start_server():
@@ -1627,20 +1652,29 @@ if __name__ == "__main__":
         os._exit(0)
 
     try:
+        bundle_dir = getattr(sys, '_MEIPASS', BASE_DIR)
         if sys.platform == "win32":
             icon_candidates = [
-                os.path.join(BASE_DIR, "web", "icons", "icon.ico"),
+                os.path.join(bundle_dir, "icon", "icon.ico"),
+                os.path.join(bundle_dir, "web", "icons", "icon.ico"),
                 os.path.join(BASE_DIR, "icon", "icon.ico"),
+                os.path.join(BASE_DIR, "web", "icons", "icon.ico"),
+                os.path.join(bundle_dir, "icon", "icon.png"),
+                os.path.join(BASE_DIR, "icon", "icon.png"),
             ]
         elif sys.platform == "darwin":
             icon_candidates = [
-                os.path.join(BASE_DIR, "web", "icons", "icon.icns"),
+                os.path.join(bundle_dir, "icon", "icon.icns"),
+                os.path.join(bundle_dir, "web", "icons", "icon.icns"),
                 os.path.join(BASE_DIR, "icon", "icon.icns"),
+                os.path.join(BASE_DIR, "web", "icons", "icon.icns"),
             ]
         else:
             icon_candidates = [
-                os.path.join(BASE_DIR, "web", "icons", "icon.png"),
+                os.path.join(bundle_dir, "icon", "icon.png"),
+                os.path.join(bundle_dir, "web", "icons", "icon.png"),
                 os.path.join(BASE_DIR, "icon", "icon.png"),
+                os.path.join(BASE_DIR, "web", "icons", "icon.png"),
             ]
         icon_path = next((p for p in icon_candidates if os.path.isfile(p)), None)
 
@@ -1669,5 +1703,10 @@ if __name__ == "__main__":
             )
         _shutdown_now()
     except Exception as e:
-        print(f"CRITICAL ERROR: pywebview failed to start ({e})")
-        _shutdown_now()
+        print(f"Desktop window could not be opened ({e}). Falling back to browser...")
+        import webbrowser
+        webbrowser.open(url)
+        try:
+            server_thread.join()
+        except KeyboardInterrupt:
+            _shutdown_now()

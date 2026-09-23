@@ -1,7 +1,20 @@
 from abc import ABC, abstractmethod
-from core.shared import BaseDownloader
+from core.shared import (
+    BaseDownloader,
+    sanitize_path_component,
+    sanitize_filename,
+    safe_ensure_dir,
+    safe_filepath
+)
 
-__all__ = ["BaseWorker", "BaseDownloader"]
+__all__ = [
+    "BaseWorker",
+    "BaseDownloader",
+    "sanitize_path_component",
+    "sanitize_filename",
+    "safe_ensure_dir",
+    "safe_filepath"
+]
 
 
 class BaseWorker(BaseDownloader, ABC):

@@ -1,7 +1,7 @@
 import os, re
 import asyncio
 import aiohttp
-from workers import BaseWorker
+from workers import BaseWorker, sanitize_path_component, sanitize_filename, safe_ensure_dir
 
 
 class DanbooruWorker(BaseWorker):
@@ -23,9 +23,9 @@ class DanbooruWorker(BaseWorker):
 
         FORMAT_WORDS = {"video", "image"}
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-') and t not in FORMAT_WORDS)
-        self.safe_tag = re.sub(r'[\\/*?:"<>|]', "", clean_tag)
+        self.safe_tag = sanitize_path_component(clean_tag, fallback="danbooru")
         self.tag_dir = os.path.join(self.site_root, self.safe_tag)
-        os.makedirs(self.tag_dir, exist_ok=True)
+        safe_ensure_dir(self.tag_dir)
 
     def get_tags(self):
         return [self.original_tag]
@@ -135,11 +135,11 @@ class DanbooruWorker(BaseWorker):
                 if ext not in ["jpg", "jpeg", "png", "gif", "webp", "mp4", "webm"]:
                     continue
 
-                filename = f"{post.get('id')}.{ext}"
+                filename = sanitize_filename(f"{post.get('id')}.{ext}")
                 is_video = ext in self.video_exts
-                rating_label = self.rating_map.get(post_rating, "Unknown")
+                rating_label = sanitize_path_component(self.rating_map.get(post_rating, "Unknown"), fallback="Unknown")
                 rating_dir = os.path.join(self.tag_dir, rating_label, "video" if is_video else "images")
-                os.makedirs(rating_dir, exist_ok=True)
+                safe_ensure_dir(rating_dir)
                 filepath = os.path.join(rating_dir, filename)
 
                 tags_raw = post.get("tag_string", "")

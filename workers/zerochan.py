@@ -20,6 +20,9 @@ from core.shared import (
     save_history,
     build_tagd,
     check_duplicate,
+    sanitize_path_component,
+    sanitize_filename,
+    safe_ensure_dir,
 )
 from core.gallery_dl_interop import ensure_zerochan_page_html
 
@@ -202,13 +205,7 @@ _UNSAFE_PATH_CHARS_RE = re.compile('[<>:"/\\\\|?*\\x00-\\x1f]')
 
 def _sanitize_path_part(name, fallback="misc"):
     """Make a tag/filename safe for Windows + POSIX filesystems."""
-    try:
-        cleaned = _UNSAFE_PATH_CHARS_RE.sub("", str(name or ""))
-        # Windows also dislikes trailing dots/spaces
-        cleaned = cleaned.strip().rstrip(". ")
-        return cleaned or fallback
-    except Exception:
-        return fallback
+    return sanitize_path_component(name, fallback=fallback)
 
 
 def _looks_like_cf_challenge(status_code, text):
@@ -738,7 +735,7 @@ class ZerochanWorker(BaseDownloader):
             if not filename or '.' not in filename:
                 filename = f"zerochan_{pid}.jpg"
             # ':' and other reserved chars break Windows renames (WinError 87)
-            filename = _sanitize_path_part(filename, fallback=f"zerochan_{pid}.jpg")
+            filename = sanitize_filename(filename, fallback=f"zerochan_{pid}.jpg")
             filepath = os.path.join(self.tag_dir, filename)
 
             return await self.enqueue_download(
@@ -819,6 +816,7 @@ class ZerochanWorker(BaseDownloader):
                 if "text/html" in ctype and b"Just a moment" in content[:8192]:
                     raise Exception("Cloudflare challenge (HTTP 200 with JS check) — retrying")
 
+                safe_ensure_dir(os.path.dirname(filepath))
                 with open(part_path, 'wb') as f:
                     f.write(content)
                 downloaded = len(content)

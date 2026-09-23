@@ -1,6 +1,6 @@
 import os, re
 import asyncio
-from workers import BaseWorker
+from workers import BaseWorker, sanitize_path_component, sanitize_filename, safe_ensure_dir
 
 
 API_BASE = "https://sankakuapi.com"
@@ -20,11 +20,10 @@ class SankakuWorker(BaseWorker):
         self.rating_map = {"s": "Safe", "q": "Questionable", "e": "NSFW"}
 
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-'))
-        # NOTE: ':' included — it is illegal on Windows (WinError 267/87).
-        # Empty stays empty (downloads land directly in site_root, as before).
-        self.safe_tag = re.sub(r'[\\/*?:"<>|]', "", clean_tag).strip()
-        self.tag_dir = os.path.join(self.site_root, self.safe_tag)
-        os.makedirs(self.tag_dir, exist_ok=True)
+        # Prohibited characters (colon, slashes, etc.) are safely stripped
+        self.safe_tag = sanitize_path_component(clean_tag, fallback="")
+        self.tag_dir = os.path.join(self.site_root, self.safe_tag) if self.safe_tag else self.site_root
+        safe_ensure_dir(self.tag_dir)
 
     async def _create_session(self):
         session = await super()._create_session()
@@ -173,12 +172,12 @@ class SankakuWorker(BaseWorker):
                 if ext == "gif" and "-gif" in self.exclusions:
                     continue
 
-                filename = f"{post.get('id')}.{ext}"
+                filename = sanitize_filename(f"{post.get('id')}.{ext}", fallback=f"sankaku_{post.get('id', 'item')}.jpg")
 
-                rating_label = self.rating_map.get(post_rating, "Unknown")
+                rating_label = sanitize_path_component(self.rating_map.get(post_rating, "Unknown"), fallback="Unknown")
                 subfolder = "books" if post.get("in_visible_pool") else "images"
                 rating_dir = os.path.join(self.tag_dir, rating_label, subfolder)
-                os.makedirs(rating_dir, exist_ok=True)
+                safe_ensure_dir(rating_dir)
                 filepath = os.path.join(rating_dir, filename)
 
                 raw_tags = post.get("tags", [])

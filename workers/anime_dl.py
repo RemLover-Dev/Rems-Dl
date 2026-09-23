@@ -1,7 +1,11 @@
 import os
 import asyncio
 from curl_cffi import requests as curl_requests
-from core.shared import BaseDownloader, MASTER_FOLDER, add_to_gallery, send_tags, write_image_metadata, save_history, build_tagd, check_duplicate
+from core.shared import (
+    BaseDownloader, MASTER_FOLDER, add_to_gallery, send_tags,
+    write_image_metadata, save_history, build_tagd, check_duplicate,
+    sanitize_path_component, sanitize_filename, safe_ensure_dir
+)
 
 API = "https://api.anime-pictures.net/api/v3"
 PER_PAGE = 80
@@ -10,9 +14,9 @@ class AnimeDlWorker(BaseDownloader):
     def __init__(self, tag, amount, net_config):
         super().__init__("anime_dl", "AnimePictures", amount, net_config)
         self.tag = tag.strip().lower()
-        self.tag_slug = self.tag.replace(" ", "_")
+        self.tag_slug = sanitize_path_component(self.tag.replace(" ", "_"), fallback="anime_pictures")
         self.tag_dir = os.path.join(self.site_root, self.tag_slug)
-        os.makedirs(self.tag_dir, exist_ok=True)
+        safe_ensure_dir(self.tag_dir)
         
         self.curl_session = None
 
@@ -20,6 +24,9 @@ class AnimeDlWorker(BaseDownloader):
         if self.stop_event.is_set():
             self.enqueued_count -= 1
             return False
+
+        safe_ensure_dir(os.path.dirname(filepath))
+        part_path = filepath + ".part"
 
         for attempt in range(self.dl_retries):
             try:
@@ -34,13 +41,15 @@ class AnimeDlWorker(BaseDownloader):
                 if resp.status_code != 200 or len(resp.content) <= 1000:
                     raise Exception(f"HTTP {resp.status_code} or file too small")
                 
-                with open(filepath, "wb") as f:
+                with open(part_path, "wb") as f:
                     f.write(resp.content)
 
                 if self.stop_event.is_set():
-                    if os.path.exists(filepath): os.remove(filepath)
+                    if os.path.exists(part_path): os.remove(part_path)
                     self.enqueued_count -= 1
                     return False
+
+                os.replace(part_path, filepath)
 
                 # persistent perceptual-hash dedup (see core/shared.py)
                 dup = check_duplicate(filepath, self.name)
@@ -201,8 +210,8 @@ class AnimeDlWorker(BaseDownloader):
                     if not file_url: continue
 
                     dl_url = f"https://api.anime-pictures.net/pictures/download_image/{file_url}"
-                    ext = file_url.rsplit(".", 1)[-1]
-                    filename = f"{self.tag_slug}_{post_id}.{ext}"
+                    ext = file_url.rsplit(".", 1)[-1].split("?")[0]
+                    filename = sanitize_filename(f"{self.tag_slug}_{post_id}.{ext}", fallback=f"anime_{post_id}.jpg")
                     filepath = os.path.join(self.tag_dir, filename)
 
                     raw_tags = detail.get("tags", [])

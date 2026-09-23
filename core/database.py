@@ -387,7 +387,9 @@ class DatabaseManager:
 class SettingsManager:
     """Manages application settings loaded from .env and runtime config."""
 
-    def __init__(self, base_dir):
+    def __init__(self, base_dir=None):
+        if base_dir is None:
+            base_dir = _app_base_dir()
         self.base_dir = base_dir
         self.config = {
             "use_proxy": os.getenv("USE_PROXY", "false").lower() == "true",
@@ -396,7 +398,8 @@ class SettingsManager:
             "api_timeout": int(os.getenv("API_TIMEOUT", "10")),
             "retry_wait": int(os.getenv("RETRY_WAIT", "5")),
             "anti_ban_pause": float(os.getenv("ANTI_BAN_PAUSE", "3.0")),
-            "download_retries": int(os.getenv("DOWNLOAD_RETRIES", "3"))
+            "download_retries": int(os.getenv("DOWNLOAD_RETRIES", "3")),
+            "dedup_enabled": os.getenv("DEDUP_ENABLED", "true").lower() == "true"
         }
 
     def get(self, key, default=None):
@@ -453,9 +456,11 @@ class SettingsManager:
             "API_TIMEOUT": str(self.config['api_timeout']),
             "RETRY_WAIT": str(self.config['retry_wait']),
             "ANTI_BAN_PAUSE": str(self.config['anti_ban_pause']),
-            "DOWNLOAD_RETRIES": str(self.config['download_retries'])
+            "DOWNLOAD_RETRIES": str(self.config['download_retries']),
+            "DEDUP_ENABLED": str(self.config.get('dedup_enabled', True)).lower()
         }
         self._upsert_env_keys(env_keys)
+        os.environ["DEDUP_ENABLED"] = env_keys["DEDUP_ENABLED"]
 
     def save_api_settings(self, data):
         keys_to_save = {
@@ -509,3 +514,13 @@ class SettingsManager:
             "danbooru_login": config.get("DANBOORU_LOGIN", ""),
             "danbooru_api_key": config.get("DANBOORU_API_KEY", "")
         }
+
+
+_settings_instance = None
+
+def get_settings(base_dir=None):
+    global _settings_instance
+    if _settings_instance is None:
+        _settings_instance = SettingsManager(base_dir)
+    return _settings_instance
+

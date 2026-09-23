@@ -1,7 +1,7 @@
 import os, re
 import asyncio
 import xml.etree.ElementTree as ET
-from workers import BaseWorker
+from workers import BaseWorker, sanitize_path_component, sanitize_filename, safe_ensure_dir
 import core.shared as shared
 
 
@@ -12,9 +12,9 @@ class SafebooruWorker(BaseWorker):
         self.exclusions = exclusions
 
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-'))
-        self.safe_tag = re.sub(r'[\\/*?:"<>|]', "", clean_tag)
+        self.safe_tag = sanitize_path_component(clean_tag, fallback="safebooru")
         self.tag_dir = os.path.join(self.site_root, self.safe_tag)
-        os.makedirs(self.tag_dir, exist_ok=True)
+        safe_ensure_dir(self.tag_dir)
 
     def get_tags(self):
         return [self.original_tag]
@@ -137,9 +137,9 @@ class SafebooruWorker(BaseWorker):
                 if ext == "gif" and "-gif" in self.exclusions:
                     continue
 
-                filename = f"{post.get('id')}.{ext}"
+                filename = sanitize_filename(f"{post.get('id')}.{ext}", fallback=f"safebooru_{post.get('id', 'item')}.jpg")
                 safe_dir = os.path.join(self.tag_dir, "Safe", "images")
-                os.makedirs(safe_dir, exist_ok=True)
+                safe_ensure_dir(safe_dir)
                 filepath = os.path.join(safe_dir, filename)
 
                 tags_raw = post.get("tag_string", post.get("tags", ""))

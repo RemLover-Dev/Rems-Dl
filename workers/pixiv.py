@@ -29,7 +29,11 @@ from urllib.parse import unquote
 from PIL import Image
 import requests
 
-from core.shared import BaseDownloader, save_history, add_to_gallery, send_tags, check_duplicate, MASTER_FOLDER
+from core.shared import (
+    BaseDownloader, save_history, add_to_gallery, send_tags,
+    check_duplicate, MASTER_FOLDER, sanitize_path_component,
+    sanitize_filename, safe_ensure_dir
+)
 
 CLIENT_ID = "MOBrBDS8blbauoSck0ZfDbtuzpyT"
 CLIENT_SECRET = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"
@@ -186,12 +190,12 @@ class PixivWorker(BaseDownloader):
             self.value = self.raw_tag
         self._artist_resolved = False
 
-        safe_value = re.sub(r'[\\/*?:"<>|]', "", self.value) or "pixiv"
+        safe_value = sanitize_path_component(self.value, fallback="pixiv")
         if self.mode == "ranking":
             self.tag_dir = os.path.join(self.site_root, "ranking", safe_value)
         else:
             self.tag_dir = os.path.join(self.site_root, safe_value)
-        os.makedirs(self.tag_dir, exist_ok=True)
+        safe_ensure_dir(self.tag_dir)
 
     def _api_instance(self):
         if self._api is None:
@@ -268,10 +272,10 @@ class PixivWorker(BaseDownloader):
                 break
         old = self.tag_dir
         if name:
-            safe = re.sub(r'[\\/*?:"<>|]', "", name).strip() or self.value
+            safe = sanitize_path_component(name, fallback="artist")
             self.tag_dir = os.path.join(MASTER_FOLDER, "Artists", safe)
             self.log(f"Artist: {name}")
-        os.makedirs(self.tag_dir, exist_ok=True)
+        safe_ensure_dir(self.tag_dir)
         try:
             if old != self.tag_dir and os.path.isdir(old) and not os.listdir(old):
                 os.rmdir(old)
@@ -327,11 +331,11 @@ class PixivWorker(BaseDownloader):
             ext = file_info.get("ext")
             num = file_info.get("num", 0)
             suffix = f"_p{num:02}" if num > 0 else ""
-            filename = f"{work_id}{suffix}.{ext}"
+            filename = sanitize_filename(f"{work_id}{suffix}.{ext}", fallback=f"pixiv_{work_id}{suffix}.jpg")
 
-            rating_label = RATING_CODES.get(x_restrict, "Unknown")
+            rating_label = sanitize_path_component(RATING_CODES.get(x_restrict, "Unknown"), fallback="Unknown")
             rating_dir = os.path.join(self.tag_dir, rating_label, "images")
-            os.makedirs(rating_dir, exist_ok=True)
+            safe_ensure_dir(rating_dir)
             filepath = os.path.join(rating_dir, filename)
 
             if is_u and ext == "zip":
@@ -421,7 +425,8 @@ class PixivWorker(BaseDownloader):
                 self.log(f"No frames extracted from ugoira {work_id}")
                 return False
 
-            gif_name = f"{work_id}.gif"
+            safe_ensure_dir(rating_dir)
+            gif_name = sanitize_filename(f"{work_id}.gif", fallback=f"pixiv_{work_id}.gif")
             gif_path = os.path.join(rating_dir, gif_name)
 
             frame_images[0].save(

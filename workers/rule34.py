@@ -1,6 +1,6 @@
 import os, re, random
 import asyncio
-from workers import BaseWorker
+from workers import BaseWorker, sanitize_path_component, sanitize_filename, safe_ensure_dir
 from rule34Py import rule34Py
 from rule34Py.tag import TagType
 
@@ -44,11 +44,9 @@ class Rule34Worker(BaseWorker):
         self.log(f"Final Payload sent to rule34Py: {TAGS}")
 
         clean_folder_name = " ".join([t for t in tag_list if not t.startswith('-')])
-        self.safe_tag = re.sub(r'[\\/*?:"<>|~]', "", clean_folder_name).strip()
-        if not self.safe_tag:
-            self.safe_tag = "mixed_tags"
+        self.safe_tag = sanitize_path_component(clean_folder_name.replace("~", ""), fallback="mixed_tags")
         self.tag_dir = os.path.join(self.site_root, self.safe_tag)
-        os.makedirs(self.tag_dir, exist_ok=True)
+        safe_ensure_dir(self.tag_dir)
 
     async def _create_session(self):
         session = await super()._create_session()
@@ -143,7 +141,7 @@ class Rule34Worker(BaseWorker):
                     continue
 
                 post_id = getattr(result, 'id', random.randint(1000, 99999))
-                filename = f"{post_id}.{ext}"
+                filename = sanitize_filename(f"{post_id}.{ext}", fallback=f"r34_{post_id}.jpg")
                 filepath = os.path.join(self.tag_dir, filename)
 
                 tags_raw = getattr(result, 'tags', [])

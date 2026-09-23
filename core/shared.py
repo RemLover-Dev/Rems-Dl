@@ -131,6 +131,80 @@ def build_tagd(artists=None, characters=None, copyrights=None, metadata_tags=Non
                 pills += 1
     return ", ".join(seen)
 
+# --- PATH & FILENAME SANITIZATION (Filesystem-safe on Windows & POSIX) ---
+_UNSAFE_PATH_CHARS_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+_WINDOWS_RESERVED_NAMES = {
+    "CON", "PRN", "AUX", "NUL",
+    "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+}
+
+def sanitize_path_component(name: str, fallback: str = "misc", max_length: int = 120) -> str:
+    """Make a tag or directory name completely safe for Windows and POSIX filesystems.
+
+    Removes prohibited characters (< > : " / \\ | ? * and control chars 0x00-0x1F),
+    strips trailing/leading spaces and dots, avoids Windows reserved names (CON, AUX, etc.),
+    and enforces a safe maximum length.
+    """
+    if not name:
+        return fallback
+    try:
+        cleaned = _UNSAFE_PATH_CHARS_RE.sub("", str(name))
+        cleaned = cleaned.strip().rstrip(". ").strip()
+        if not cleaned:
+            return fallback
+        # Check against Windows reserved device names
+        root_name = cleaned.split(".")[0].upper()
+        if root_name in _WINDOWS_RESERVED_NAMES:
+            cleaned = f"_{cleaned}"
+        if len(cleaned) > max_length:
+            cleaned = cleaned[:max_length].rstrip(". ")
+        return cleaned or fallback
+    except Exception:
+        return fallback
+
+def sanitize_filename(name: str, fallback: str = "image.jpg", max_length: int = 150) -> str:
+    """Make a filename safe for the filesystem while preserving its extension."""
+    if not name:
+        return fallback
+    try:
+        base, ext = os.path.splitext(str(name).strip())
+        safe_ext = _UNSAFE_PATH_CHARS_RE.sub("", ext).strip()
+        safe_base = sanitize_path_component(base, fallback="image", max_length=max(10, max_length - len(safe_ext)))
+        return f"{safe_base}{safe_ext}" if safe_ext else safe_base
+    except Exception:
+        return fallback
+
+def safe_ensure_dir(path: str) -> str:
+    """Ensure directory exists even if it contains unusual characters or relative paths.
+    Creates parent directories safely.
+    """
+    if not path:
+        return ""
+    try:
+        os.makedirs(path, exist_ok=True)
+        return path
+    except OSError:
+        # If creation failed because a subsegment was invalid on Windows, sanitize components
+        try:
+            drive, rest = os.path.splitdrive(path)
+            parts = [p for p in rest.split(os.sep) if p]
+            safe_parts = [sanitize_path_component(p) for p in parts]
+            if drive:
+                safe_path = os.path.join(drive + os.sep, *safe_parts)
+            else:
+                safe_path = os.path.join(*safe_parts) if safe_parts else "."
+            os.makedirs(safe_path, exist_ok=True)
+            return safe_path
+        except Exception:
+            return path
+
+def safe_filepath(folder: str, filename: str) -> tuple:
+    """Sanitize filename and ensure parent folder exists, returning (safe_filepath, safe_filename)."""
+    safe_name = sanitize_filename(filename)
+    safe_dir = safe_ensure_dir(folder)
+    return os.path.join(safe_dir, safe_name), safe_name
+
 def send_tags(worker_name, filename, tags_list, artist_list=None, filepath=None, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
     if artist_list is None: artist_list = []
     tag_callback(worker_name, filename, tags_list, artist_list, filepath, characters, copyrights, metadata_tags, outfits, groups, hair, eyes)
@@ -296,6 +370,7 @@ def load_history(site_root):
         return set()
 
 def save_history(site_root, history_set):
+    safe_ensure_dir(site_root)
     hist_path = os.path.join(site_root, "download_history.json")
     with HISTORY_LOCK:
         try:
@@ -312,6 +387,13 @@ def remove_gallery_files(paths):
     if removed:
         gal["images"] = kept
         save_gallery(gal)
+    try:
+        from core.dedup_store import get_store
+        store = get_store()
+        for p in paths:
+            store.remove_by_filepath(p)
+    except Exception:
+        pass
     return removed
 
 
@@ -323,17 +405,20 @@ _DEDUP_SKIP_EXTS = {'.mp4', '.webm', '.mov', '.avi', '.mkv', '.zip'}
 def check_duplicate(filepath, site, post_id=None):
     """Hash `filepath` and check it against everything downloaded so far.
 
-    Returns a DedupResult, or None when dedup doesn't apply (non-image file,
-    unreadable file, or store unavailable) — the caller keeps the file. """
+    Returns a DedupResult, or None when dedup doesn't apply (disabled in settings,
+    non-image file, unreadable file, or store unavailable) — the caller keeps the file. """
+    try:
+        from core.database import get_settings
+        if not get_settings().get("dedup_enabled", True):
+            return None
+    except Exception:
+        pass
+
     ext = os.path.splitext(str(filepath))[1].lower()
     if ext in _DEDUP_SKIP_EXTS:
         return None
     try:
         from core.dedup_store import get_store
-    except Exception as e:
-        print(f"[DEDUP] store unavailable ({e}) — keeping {filepath}")
-        return None
-    try:
         pid = str(post_id) if post_id is not None else None
         return get_store().check_and_add(str(filepath), site=site, post_id=pid)
     except Exception as e:
@@ -359,7 +444,8 @@ class BaseDownloader:
         self.anti_ban_pause = float(net_config.get("anti_ban_pause", 3.0))
         self.dl_retries = int(net_config.get("download_retries", 3))
 
-        self.site_root = os.path.join(MASTER_FOLDER, site_folder)
+        safe_folder = sanitize_path_component(site_folder, fallback=self.name)
+        self.site_root = os.path.join(MASTER_FOLDER, safe_folder)
         os.makedirs(self.site_root, exist_ok=True)
         self.dl_history = load_history(self.site_root)
 
@@ -415,8 +501,19 @@ class BaseDownloader:
     async def enqueue_download(self, url, filepath, filename, tags_list, artists=None, characters=None, copyrights=None, metadata_tags=None, outfits=None, groups=None, hair=None, eyes=None):
         if artists is None: artists = []
         
-        if filename in self.dl_history or filename in self.queued_items or os.path.exists(filepath):
-            return False
+        # Defensive sanitization against prohibited filesystem characters in folders and filenames
+        clean_filename = sanitize_filename(filename, fallback="image.jpg")
+        file_dir = os.path.dirname(filepath)
+        safe_dir = safe_ensure_dir(file_dir) if file_dir else self.site_root
+        filepath = os.path.join(safe_dir, clean_filename)
+        filename = clean_filename
+
+        try:
+            if filename in self.dl_history or filename in self.queued_items or os.path.exists(filepath):
+                return False
+        except Exception:
+            if filename in self.dl_history or filename in self.queued_items:
+                return False
 
         # ponytail: no HEAD request here — it cost a full round-trip per file
         # just to feed total_bytes, which nothing reads. The GET reconciles
@@ -433,6 +530,11 @@ class BaseDownloader:
         if self.stop_event.is_set():
             self.enqueued_count -= 1
             return False
+
+        # Ensure parent directory exists before writing .part file
+        parent_dir = os.path.dirname(filepath)
+        if parent_dir:
+            safe_ensure_dir(parent_dir)
 
         part_path = filepath + ".part"
         # booru filenames embed their md5 (-<32hex>.ext); hash incrementally

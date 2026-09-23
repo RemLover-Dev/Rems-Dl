@@ -1,6 +1,6 @@
 import os, re
 import asyncio
-from workers import BaseWorker
+from workers import BaseWorker, sanitize_path_component, sanitize_filename, safe_ensure_dir
 from core.shared import load_tag_cache, save_tag_cache, TAG_TYPE_MAP
 
 
@@ -24,9 +24,9 @@ class GelbooruWorker(BaseWorker):
             self.rating_display = self.rating_label_map.get(self.rating_code_map.get(self.rating.split(":")[-1], ""), "")
 
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-'))
-        self.safe_tag_name = re.sub(r'[\\/*?:"<>|]', "", clean_tag)
+        self.safe_tag_name = sanitize_path_component(clean_tag, fallback="gelbooru")
         self.tag_dir = os.path.join(self.site_root, self.safe_tag_name)
-        os.makedirs(self.tag_dir, exist_ok=True)
+        safe_ensure_dir(self.tag_dir)
 
         self.tag_cache = load_tag_cache("gelbooru")
 
@@ -151,14 +151,15 @@ class GelbooruWorker(BaseWorker):
                 if ext in ["jpg", "jpeg", "png", "webp"] and "-image" in self.exclusions: continue
                 if ext == "gif" and "-gif" in self.exclusions: continue
 
-                filename = file_url.split('/')[-1].split('?')[0]
-                rating_label = self.rating_label_map.get(post_rating, "Unknown")
+                raw_filename = file_url.split('/')[-1].split('?')[0]
+                filename = sanitize_filename(raw_filename, fallback=f"gelbooru_{post.get('id', 'item')}.jpg")
+                rating_label = sanitize_path_component(self.rating_label_map.get(post_rating, "Unknown"), fallback="Unknown")
 
                 raw_tags = [t.strip() for t in post.get("tags", "").split() if t.strip()]
                 tags_list, artists, characters, copyrights, metadata_tags = self._categorize_tags(raw_tags)
 
                 rating_dir = os.path.join(self.tag_dir, rating_label, "images")
-                os.makedirs(rating_dir, exist_ok=True)
+                safe_ensure_dir(rating_dir)
                 filepath = os.path.join(rating_dir, filename)
 
                 if await self.enqueue_download(file_url, filepath, filename, tags_list, artists, characters, copyrights, metadata_tags):

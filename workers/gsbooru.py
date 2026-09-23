@@ -21,6 +21,9 @@ from core.shared import (
     build_tagd,
     check_duplicate,
     MASTER_FOLDER,
+    sanitize_path_component,
+    sanitize_filename,
+    safe_ensure_dir,
 )
 
 
@@ -138,17 +141,14 @@ class GsbooruWorker(BaseWorker):
             if not t.startswith("-")
         )
 
-        self.safe_tag_name = (
-            re.sub(r'[\\/*?:"<>|]', "", clean_tag)
-            or "all"
-        )
+        self.safe_tag_name = sanitize_path_component(clean_tag, fallback="all")
 
         self.tag_dir = os.path.join(
             self.site_root,
             self.safe_tag_name
         )
 
-        os.makedirs(self.tag_dir, exist_ok=True)
+        safe_ensure_dir(self.tag_dir)
 
     def get_tags(self):
         return [self.original_tag]
@@ -538,17 +538,19 @@ class GsbooruWorker(BaseWorker):
                 if not general:
                     general = tags_list
 
-                filename = (
+                raw_filename = (
                     file_url
                     .split("/")[-1]
                     .split("?")[0]
                 )
+                filename = sanitize_filename(raw_filename, fallback=f"gsbooru_{post_id}.jpg")
 
-                rating_label = (
+                rating_label = sanitize_path_component(
                     self.rating_label_map.get(
                         rating_word,
                         "Unknown"
-                    )
+                    ),
+                    fallback="Unknown"
                 )
 
                 rating_dir = os.path.join(
@@ -557,10 +559,7 @@ class GsbooruWorker(BaseWorker):
                     "images"
                 )
 
-                os.makedirs(
-                    rating_dir,
-                    exist_ok=True
-                )
+                safe_ensure_dir(rating_dir)
 
                 filepath = os.path.join(
                     rating_dir,

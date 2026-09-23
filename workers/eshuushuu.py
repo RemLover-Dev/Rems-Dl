@@ -1,6 +1,6 @@
 import os, re, asyncio, json
 import requests
-from core.shared import BaseDownloader
+from core.shared import BaseDownloader, sanitize_path_component, sanitize_filename, safe_ensure_dir
 
 class EShuushuuWorker(BaseDownloader):
     def __init__(self, tag, amount, exclusions, user_id, net_config):
@@ -22,9 +22,9 @@ class EShuushuuWorker(BaseDownloader):
         self.tag_id = ",".join(self.tag_ids)
 
         clean_tag = " ".join(t for t in self.original_tag.split() if not t.startswith('-'))
-        self.safe_tag = re.sub(r'[\\/*?"<>|]', "", clean_tag or "all")
-        self.tag_dir = os.path.join(self.site_root, self.safe_tag or "all")
-        os.makedirs(self.tag_dir, exist_ok=True)
+        self.safe_tag = sanitize_path_component(clean_tag, fallback="all")
+        self.tag_dir = os.path.join(self.site_root, self.safe_tag)
+        safe_ensure_dir(self.tag_dir)
 
     def _resolve_many(self, tokens):
         # ponytail: titles contain spaces ("long hair") — greedy longest
@@ -207,15 +207,15 @@ class EShuushuuWorker(BaseDownloader):
                         elif ttype == "2": copyrights.append(title)
                         else: general.append(title)
 
-                    out_name = f"{img_id}.{ext}"
+                    out_name = sanitize_filename(f"{img_id}.{ext}")
 
                     if self.user_id and username:
-                        user_dir = re.sub(r'[\\/*?"<>|]', "_", username)
+                        user_dir = sanitize_path_component(username, fallback="user")
                         base = self.tag_dir if self.original_tag else self.site_root
                         download_dir = os.path.join(base, user_dir)
                     else:
                         download_dir = self.tag_dir
-                    os.makedirs(download_dir, exist_ok=True)
+                    safe_ensure_dir(download_dir)
                     filepath = os.path.join(download_dir, out_name)
 
                     if await self.enqueue_download(cdn_url, filepath, out_name, general, artists, characters, copyrights, []):

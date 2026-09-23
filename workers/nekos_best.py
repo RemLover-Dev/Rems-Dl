@@ -1,14 +1,15 @@
 import os
 import asyncio
-from workers import BaseWorker
+from workers import BaseWorker, sanitize_path_component, sanitize_filename, safe_ensure_dir
 
 
 class NekosBestWorker(BaseWorker):
     def __init__(self, category, amount, net_config):
         super().__init__("neko", "Nekos.best", amount, net_config)
         self.category = category
-        self.cat_dir = os.path.join(self.site_root, category)
-        os.makedirs(self.cat_dir, exist_ok=True)
+        safe_cat = sanitize_path_component(category, fallback="neko")
+        self.cat_dir = os.path.join(self.site_root, safe_cat)
+        safe_ensure_dir(self.cat_dir)
 
     def get_tags(self):
         return [self.category]
@@ -58,7 +59,8 @@ class NekosBestWorker(BaseWorker):
                 url = item.get("url")
                 if not url:
                     continue
-                filename = url.split('/')[-1]
+                raw_filename = url.split('/')[-1]
+                filename = sanitize_filename(raw_filename, fallback="neko.jpg")
                 filepath = os.path.join(self.cat_dir, filename)
                 if await self.enqueue_download(url, filepath, filename, [self.category], []):
                     collected_count += 1
