@@ -2010,13 +2010,16 @@ async function saveProxySettings() {
 }
 
 async function browseFolder() {
-    let folder = prompt("Enter the master download folder path:");
-    if (!folder) return;
     try {
-        let resp = await fetch("/api/folder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ folder: folder }) });
+        let resp = await fetch("/api/folder/browse", { method: "POST" });
         let data = await resp.json();
-        if (data.folder) { document.getElementById("folderDisplay").innerText = data.folder; showToast("✅ Master folder updated"); }
-    } catch(e) {}
+        if (data.error) { showToast("Folder picker failed: " + data.error, { warn: true, icon: WARN_ICON }); return; }
+        if (data.cancelled) return;
+        if (data.folder) {
+            document.getElementById("folderDisplay").innerText = data.folder;
+            showToast("Master folder updated", { icon: CHECK_ICON });
+        }
+    } catch(e) { showToast("Folder picker failed: " + (e.message || e), { warn: true, icon: WARN_ICON }); }
 }
 
 function openTab(tabName, btn) {
@@ -2066,6 +2069,8 @@ function showToast(msg, opts) {
 
 // ponytail: silent JS failures are undebuggable in the desktop window — surface them
 const WARN_ICON = `<svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.89003 1.0499C7.80611 0.886097 7.67861 0.748632 7.52158 0.652642 7.36455 0.556651 7.18407 0.505859 7.00003 0.505859c-0.18405 0 -0.36453 0.050792 -0.52156 0.146783 -0.15703 0.09599 -0.28453 0.233455 -0.36844 0.397258l-5.500004 11c-0.07671 0.1522 -0.113232 0.3215 -0.106098 0.4919 0.007134 0.1703 0.057688 0.3359 0.146861 0.4812 0.089172 0.1453 0.214003 0.2654 0.362641 0.3488 0.14863 0.0835 0.31613 0.1276 0.4866 0.1281H12.5c0.1705 -0.0005 0.338 -0.0446 0.4866 -0.1281 0.1487 -0.0834 0.2735 -0.2035 0.3627 -0.3488 0.0891 -0.1453 0.1397 -0.3109 0.1468 -0.4812 0.0072 -0.1704 -0.0294 -0.3397 -0.1061 -0.4919l-5.49997 -11Z"/><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 5v3.25"/><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 11c-0.13807 0 -0.25 -0.1119 -0.25 -0.25s0.11193 -0.25 0.25 -0.25"/><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 11c0.13807 0 0.25 -0.1119 0.25 -0.25s-0.11193 -0.25 -0.25 -0.25"/></svg>`;
+const CHECK_ICON = ZERO_CHECK_ICON;
+const TRASH_ICON = `<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" style="display:block;"><path fill="currentColor" d="M15.2188 0c0.2229 0.0000058603 0.4394 0.0747674 0.6152 0.211914 0.1757 0.137143 0.3013 0.328695 0.3555 0.544922L16.6182 3H24v2h-3v16c0 0.7957 -0.3163 1.5585 -0.8789 2.1211S18.7957 24 18 24H6c-0.79565 0 -1.55849 -0.3163 -2.12109 -0.8789C3.3163 22.5585 3 21.7957 3 21V5H0V3h7.38184L7.81055 0.756836c0.05418 -0.216227 0.17973 -0.407779 0.35547 -0.544922C8.34176 0.0747674 8.55833 0.0000058603 8.78125 0zM8 19h2V8H8zm6 -11v11h2V8z"></path></svg>`;
 window.addEventListener("error", function(e) {
     try {
         const stack = (e.error && e.error.stack ? String(e.error.stack) : "").split("\n").slice(0, 3).join(" | ");

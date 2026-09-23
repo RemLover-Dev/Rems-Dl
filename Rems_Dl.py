@@ -292,12 +292,60 @@ def config_manager():
 
 @app.route("/api/folder", methods=["GET", "POST"])
 def folder_manager():
+    global MASTER_FOLDER
     if request.method == "POST":
-        folder = request.json.get("folder", "")
-        if folder:
-            shared.MASTER_FOLDER = os.path.join(folder, "Rem God")
-            return jsonify({"folder": shared.MASTER_FOLDER})
-    return jsonify({"folder": shared.MASTER_FOLDER})
+        folder = (request.json or {}).get("folder", "")
+        if not folder:
+            return jsonify({"error": "empty"}), 400
+        MASTER_FOLDER = os.path.normpath(folder)
+        shared.MASTER_FOLDER = MASTER_FOLDER
+    return jsonify({"folder": MASTER_FOLDER})
+
+def _pick_folder_desktop(start: str):
+    """User's desktop folder dialog (kdialog/Dolphin on KDE, zenity elsewhere). None if cancelled."""
+    import subprocess
+    for cmd in (
+        ["kdialog", "--getexistingdirectory", start],
+        ["zenity", "--file-selection", "--directory", f"--filename={start}/"],
+    ):
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        except FileNotFoundError:
+            continue
+        except Exception:
+            continue
+        if r.returncode == 0:
+            out = (r.stdout or "").strip().split("\n")[0].strip()
+            return out or None
+        # non-zero + no path = user cancelled (kdialog exits 1 on Cancel)
+        if not (r.stdout or "").strip():
+            return None
+    return False  # no desktop picker available
+
+@app.route("/api/folder/browse", methods=["POST"])
+def browse_folder():
+    """Open the desktop's folder picker (Dolphin/kdialog on KDE), else pywebview GTK."""
+    global MASTER_FOLDER
+    start = shared.MASTER_FOLDER if os.path.isdir(shared.MASTER_FOLDER) else os.path.expanduser("~")
+    try:
+        picked = _pick_folder_desktop(start)
+        if picked is False:
+            import webview
+            wins = list(webview.windows)
+            if not wins:
+                return jsonify({"error": "No folder picker available"}), 500
+            result = wins[0].create_file_dialog(webview.FileDialog.FOLDER, directory=start)
+            if not result:
+                return jsonify({"cancelled": True, "folder": shared.MASTER_FOLDER})
+            picked = result[0] if isinstance(result, (list, tuple)) else str(result)
+        if not picked:
+            return jsonify({"cancelled": True, "folder": shared.MASTER_FOLDER})
+        path = os.path.normpath(picked)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    MASTER_FOLDER = path
+    shared.MASTER_FOLDER = path
+    return jsonify({"folder": path})
 
 @app.route("/api/api-settings", methods=["GET", "POST"])
 def api_settings_manager():
