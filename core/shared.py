@@ -176,26 +176,29 @@ def sanitize_filename(name: str, fallback: str = "image.jpg", max_length: int = 
         return fallback
 
 def safe_ensure_dir(path: str) -> str:
-    """Ensure directory exists even if it contains unusual characters or relative paths.
+    """Ensure directory exists with safe, sanitized components across all platforms (Windows, Linux, macOS).
     Creates parent directories safely.
     """
     if not path:
         return ""
     try:
-        os.makedirs(path, exist_ok=True)
-        return path
-    except OSError:
-        # If creation failed because a subsegment was invalid on Windows, sanitize components
+        drive, rest = os.path.splitdrive(path)
+        is_abs = os.path.isabs(path)
+        parts = [p for p in rest.replace("\\", "/").split("/") if p]
+        safe_parts = [sanitize_path_component(p) for p in parts]
+        if drive:
+            prefix = drive + os.sep if drive.endswith(":") else drive
+            safe_path = os.path.join(prefix, *safe_parts)
+        elif is_abs:
+            safe_path = os.path.join(os.sep, *safe_parts)
+        else:
+            safe_path = os.path.join(*safe_parts) if safe_parts else "."
+        os.makedirs(safe_path, exist_ok=True)
+        return safe_path
+    except Exception:
         try:
-            drive, rest = os.path.splitdrive(path)
-            parts = [p for p in rest.split(os.sep) if p]
-            safe_parts = [sanitize_path_component(p) for p in parts]
-            if drive:
-                safe_path = os.path.join(drive + os.sep, *safe_parts)
-            else:
-                safe_path = os.path.join(*safe_parts) if safe_parts else "."
-            os.makedirs(safe_path, exist_ok=True)
-            return safe_path
+            os.makedirs(path, exist_ok=True)
+            return path
         except Exception:
             return path
 
