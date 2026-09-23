@@ -62,6 +62,9 @@ Rems-Dl-*.exe
 *.log
 *.backup.json
 
+# Local agent instructions & memory (keep local only)
+.github/instructions/
+
 # ========================
 # Test & Tool Caches
 # ========================
