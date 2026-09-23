@@ -19,6 +19,7 @@ import urllib3
 import urllib.parse
 import random
 import hashlib
+from pathlib import Path
 from PIL import Image
 from datetime import datetime
 
@@ -298,6 +299,61 @@ def folder_manager():
             shared.MASTER_FOLDER = os.path.join(folder, "Rem God")
             return jsonify({"folder": shared.MASTER_FOLDER})
     return jsonify({"folder": shared.MASTER_FOLDER})
+
+@app.route("/api/clipboard", methods=["POST"])
+def set_clipboard():
+    """Own clipboard via wl-copy/xclip so content survives app exit (WebKit's dies with us).
+
+    ?uri=1: body is a library-relative path — offer file:// as text/uri-list
+    (Klipper/Dolphin thumbnail like a native file copy). Otherwise body bytes
+    are offered as-is with the request Content-Type.
+    """
+    import shutil
+    import subprocess
+    data = request.get_data()
+    if not data:
+        return jsonify({"error": "empty"}), 400
+    mime = (request.content_type or "application/octet-stream").split(";")[0].strip() or "application/octet-stream"
+    if request.args.get("uri"):
+        rel = data.decode("utf-8", "replace").strip()
+        base = os.path.normpath(MASTER_FOLDER)
+        full = os.path.normpath(os.path.join(base, rel))
+        if full != base and not full.startswith(base + os.sep):
+            return jsonify({"error": "forbidden"}), 403
+        if not os.path.isfile(full):
+            name = os.path.basename(rel)
+            full = ""
+            if name:
+                for root, _, files in os.walk(base):
+                    if name in files:
+                        cand = os.path.join(root, name)
+                        if os.path.isfile(cand):
+                            full = cand
+                            break
+            if not full:
+                return jsonify({"error": "not found"}), 404
+        data = Path(full).as_uri().encode("utf-8") + b"\r\n"
+        mime = "text/uri-list"
+    if os.environ.get("WAYLAND_DISPLAY") and shutil.which("wl-copy"):
+        cmd = ["wl-copy", "--type", mime]
+    elif shutil.which("xclip"):
+        cmd = ["xclip", "-selection", "clipboard", "-t", mime, "-i"]
+    else:
+        return jsonify({"error": "no clipboard tool"}), 501
+    try:
+        # ponytail: new session so app exit never SIGHUPs the clipboard holder
+        p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        p.stdin.write(data)
+        p.stdin.close()
+        try:
+            p.wait(timeout=1.0)
+            if p.returncode not in (0, None):
+                return jsonify({"error": f"exit {p.returncode}"}), 500
+        except subprocess.TimeoutExpired:
+            pass  # still running = holding the selection
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/api-settings", methods=["GET", "POST"])
 def api_settings_manager():
