@@ -1,6 +1,6 @@
 <div align="center">
 
-# Rems Dl 5.1
+# Rems Dl 5.2
 
 **A massive multi-threaded image & media scraping application with a beautiful glass-morphism UI.**
 
@@ -10,7 +10,7 @@ Supports Rule34, Safebooru, Gelbooru, Gsbooru, Zerochan, Waifu.im, Nekos.best, N
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://python.org)
-[![Version](https://img.shields.io/badge/Version-5.1.0-ff9ff3.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-5.2.0-ff9ff3.svg)](CHANGELOG.md)
 
 [English](README.md) | [فارسی](README_fa.md) | [Linux & Docker](#-run-on-linux--docker)
 

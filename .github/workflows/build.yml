@@ -68,6 +68,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          name: Rem 5.2 - Rems Dl v5.2.0
+          body_path: RELEASE_NOTES.md
           files: |
             dist_installer/Rems-Dl-Windows-x64-Setup.exe
             dist_installer/Rems-Dl-Windows-x64-Portable.zip
@@ -137,6 +139,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          name: Rem 5.2 - Rems Dl v5.2.0
+          body_path: RELEASE_NOTES.md
           files: dist_linux/Rems-Dl-Linux-x86_64.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

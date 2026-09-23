@@ -4,23 +4,19 @@ All notable changes to Rems Dl will be documented in this file.
 
 ---
 
-## [Unreleased]
+## [5.2.0] - Rem 5.2: Responsive Gallery, Windows Installer & Cross-Platform CI - 2026-09-23
 
 ### Added
-- **Release Automation:** New `.github/workflows/release.yml` builds the Windows `.exe`, Linux binary, and Docker image on every `v*` tag and attaches them to the GitHub Release (binaries) / GHCR (image).
-- **Headless/Server Mode:** `REMS_HEADLESS=1` (or `--headless` / `--server` / `--no-window`) serves the UI on `0.0.0.0:$PORT` without opening a window and without auto-shutdown on tab close. The Docker image uses it by default.
-- **Ephemeral Desktop Port:** Desktop runs bind an ephemeral `127.0.0.1` loopback port, so the app never clashes with other software and two copies can run side by side.
-- **`.env.example` + `requirements.docker.txt`:** Copy-paste starter config and a server-only dependency set (no `pywebview`) for containers.
-- **Light-Mode Fixes:** Worker filter/info bars, native selects, custom dropdowns, and autosuggest popups are now theme-aware and readable in light mode.
+- **Responsive Gallery Sizing:** Dynamic tile sizing and adaptive column calculations for 1080p, 1440p / 2K, and 4K / UHD monitors. ResizeObserver integration for real-time recalculations.
+- **Windows Inno Setup Installer:** New `installer/setup.iss` with automatic registry-based detection and silent installation of Microsoft Visual C++ 2015-2022 Redistributable (x64). Output name: `Rems-Dl-Windows-x64-Setup.exe`.
+- **Windows Taskbar Branding:** Set explicit `AppUserModelID` (`RemLoverDev.RemsDl.App.1.0`) so the Windows taskbar displays the custom Rems Dl icon rather than the generic Python logo.
+- **Cross-Platform Path Sanitization:** Enhanced `safe_ensure_dir()` in `core/shared.py` to sanitize prohibited characters (`:`, `*`, `?`, etc.) across Linux, macOS, and Windows.
+- **Automated CI/CD Workflows:** `.github/workflows/build.yml` for automated building, testing, and packaging of Windows installer, portable zip, and Linux tarball.
+- **Comprehensive Testing Suite:** Added `test/test_app_config.py` and `pytest.ini` with 41 total unit tests passing.
 
 ### Changed
-- **Desktop-First Positioning:** The app is documented and built as a native desktop application (`pywebview` window); the Flask backend is internal loopback only. Docker remains the zero-setup fallback for Linux hosts.
-- **gallery-dl Patch Folded Into Code:** Removed the `gallery_dl_patch/` GPL file copy. New `core/gallery_dl_interop.py` (MIT) enables `page-html` on the user's own installed gallery-dl copy at runtime in source runs; frozen builds always use the built-in Zerochan JSON API engine. Nothing to apply by hand, no GPL text shipped.
-- **Leaner Dependencies:** Dropped unused `opencv-python` and `gunicorn` from requirements (smaller builds, no libGL system dependency on Linux).
-
-### Fixed
-- **License Documentation:** `LICENSE` now carries third-party notices (MIT own code; `workers/pixiv.py` GPL-2.0-only; gallery-dl external GPL-2.0-only, never bundled; `rule34Py` library GPL-3.0-only). `Rems_Dl.spec` no longer bundles gallery-dl.
-- **`Rems_Dl.spec` Is Now Committed:** `.gitignore` no longer excludes `*.spec`, so the build spec ships with the repo.
+- **Web UI Meta & Search:** CSS media queries optimized for large displays (expanded search input, adjusted toolbar gaps, and larger metadata view capsule).
+- **Graceful Browser Fallback:** On systems without GUI libraries, the application automatically launches in the default web browser instead of exiting.
 
 ---
 

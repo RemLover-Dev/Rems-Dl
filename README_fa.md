@@ -1,6 +1,6 @@
 <div align="center">
 
-# Rems Dl 5.1
+# Rems Dl 5.2
 
 **ابزار عظیم و چندنخی (Multi-threaded) برای دانلود تصاویر و مدیا با رابط کاربری شیشه‌ای وب**
 
@@ -8,7 +8,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://python.org)
-[![Version](https://img.shields.io/badge/Version-5.1.0-ff9ff3.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-5.2.0-ff9ff3.svg)](CHANGELOG.md)
 
 [English](README.md) | [فارسی](README_fa.md) | [لینوکس و داکر](#linux-docker)
 
