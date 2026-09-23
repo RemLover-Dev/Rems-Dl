@@ -1,6 +1,5 @@
 import os
 import sys
-import yaml
 from PIL import Image
 
 
@@ -34,17 +33,15 @@ def test_github_workflow_naming():
     workflow_path = os.path.join(".github", "workflows", "build.yml")
     assert os.path.isfile(workflow_path)
     with open(workflow_path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+        content = f.read()
 
-    jobs = data.get("jobs", {})
-    assert "build-windows" in jobs
-    assert "build-linux" in jobs
+    assert "build-windows:" in content
+    assert "build-linux:" in content
 
     # Verify proper naming ("اسم درست")
-    win_job = jobs["build-windows"]
-    linux_job = jobs["build-linux"]
-    assert "Windows" in win_job.get("name", "")
-    assert "Linux" in linux_job.get("name", "")
+    assert "Rems-Dl-Windows-x64-Setup.exe" in content
+    assert "Rems-Dl-Windows-x64-Portable.zip" in content
+    assert "Rems-Dl-Linux-x86_64.tar.gz" in content
 
 
 def test_inno_setup_script():
