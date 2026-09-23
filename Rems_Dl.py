@@ -150,7 +150,7 @@ shared.MASTER_FOLDER = MASTER_FOLDER
 
 def socketio_emit(event, data):
     try: socketio.emit(event, data)
-    except Exception: print(f"[SOCKETIO] {event}: {data}")
+    except Exception: print(f"[SOCKETIO] emit failed: {event}")
 
 shared.emit_callback = socketio_emit
 
@@ -300,6 +300,7 @@ def folder_manager():
             return jsonify({"error": "empty"}), 400
         MASTER_FOLDER = os.path.normpath(folder)
         shared.MASTER_FOLDER = MASTER_FOLDER
+        _invalidate_fp_cache()
     return jsonify({"folder": MASTER_FOLDER})
 
 @app.route("/api/clipboard", methods=["POST"])
@@ -401,6 +402,7 @@ def browse_folder():
         return jsonify({"error": str(e)}), 500
     MASTER_FOLDER = path
     shared.MASTER_FOLDER = path
+    _invalidate_fp_cache()
     return jsonify({"folder": path})
 
 @app.route("/api/api-settings", methods=["GET", "POST"])
@@ -613,19 +615,6 @@ def get_rule34_suggestions():
             if live: return jsonify(_merge_learned_and_online("rule34", query, live))
     except Exception: pass
     return jsonify(_merge_learned_and_online("rule34", query, []))
-    try:
-        session = get_session("rule34", data.get("net_config", {}))
-        url = f"https://api.rule34.xxx/autocomplete.php?q={urllib.parse.quote(query)}"
-        resp = session.get(url, timeout=3)
-        if resp.status_code == 200: return jsonify([item.get("value") for item in resp.json() if isinstance(item, dict) and "value" in item])
-    except Exception: pass
-    try:
-        session = get_session("rule34", data.get("net_config", {}))
-        url = f"https://gelbooru.com/index.php?page=autocomplete2&term={urllib.parse.quote(query)}&type=tag_query&limit=20"
-        resp = session.get(url, timeout=5)
-        if resp.status_code == 200: return jsonify([item.get("value") for item in resp.json() if isinstance(item, dict) and "value" in item])
-    except Exception: pass
-    return jsonify([])
 
 @app.route("/api/tags/zerochan/subtags", methods=["POST"])
 def get_zerochan_subtags():
@@ -768,27 +757,6 @@ def get_dan_suggestions():
             names = list(dict.fromkeys(names))[:20]
     except Exception: pass
     return jsonify(_merge_learned_and_online("dan", query, names))
-    try:
-        session = get_session("dan", data.get("net_config", {}))
-        # help:api — authenticated requests get higher limits; key lives in .env (git-ignored)
-        auth = None
-        _login, _key = os.environ.get("DANBOORU_LOGIN", ""), os.environ.get("DANBOORU_API_KEY", "")
-        if _login and _key:
-            auth = (_login, _key)
-        resp = session.get("https://danbooru.donmai.us/autocomplete.json",
-                           params={"search[query]": query + "*", "search[type]": "tag_query"},
-                           auth=auth, timeout=5)
-        if resp.status_code == 200:
-            names = []
-            for t in resp.json():
-                if isinstance(t, dict) and t.get("value"):
-                    names.append(html.unescape(t["value"]))
-                elif isinstance(t, str) and t.strip():
-                    names.append(html.unescape(t.strip()))
-            names = list(dict.fromkeys(names))[:20]
-            if names: return jsonify(names)
-    except Exception: pass
-    return jsonify([])
 
 @app.route("/api/tags/sankaku", methods=["POST"])
 def get_sankaku_suggestions():
@@ -1050,13 +1018,26 @@ def manage_favorites():
 EXTENSIONS_IMAGE = {'.jpg','.jpeg','.png','.webp','.gif','.bmp','.tiff','.tif'}
 EXTENSIONS_VIDEO = {'.mp4','.webm','.mov','.avi','.mkv'}
 
-def _build_filepath_cache():
+# ponytail: full-tree walk is expensive — cache it; mutations call _invalidate_fp_cache()
+_fp_cache = {"data": None, "at": 0.0}
+_FP_CACHE_TTL = 30.0
+
+def _invalidate_fp_cache():
+    _fp_cache["data"] = None
+    _fp_cache["at"] = 0.0
+
+def _build_filepath_cache(force=False):
+    now = time.time()
+    if not force and _fp_cache["data"] is not None and now - _fp_cache["at"] < _FP_CACHE_TTL:
+        return _fp_cache["data"]
     cache = {}
     for root, _, files in os.walk(MASTER_FOLDER):
         for fn in files:
             ext = os.path.splitext(fn)[1].lower()
             if ext in EXTENSIONS_IMAGE or ext in EXTENSIONS_VIDEO:
                 cache[fn] = os.path.relpath(os.path.join(root, fn), MASTER_FOLDER)
+    _fp_cache["data"] = cache
+    _fp_cache["at"] = now
     return cache
 
 def _apply_gallery_filters(images, search, site_filters, fav_only, type_filters, rating_filters):
@@ -1248,6 +1229,7 @@ def delete_gallery_image_by_name():
                 print("Error deleting file:", e)
             gallery["images"].pop(i)
             shared.save_gallery(gallery)
+            _invalidate_fp_cache()
             try:
                 DatabaseManager.remove_image_history(fn)
             except Exception as e:
@@ -1397,6 +1379,7 @@ def delete_gallery_image():
             fn = img.get("filename", "")
             gallery["images"].pop(i)
             shared.save_gallery(gallery)
+            _invalidate_fp_cache()
             try:
                 DatabaseManager.remove_image_history(fn)
             except Exception as e:
@@ -1411,8 +1394,12 @@ def delete_gallery_image():
             return jsonify({"success": True, "dedup_warning": dedup_warning})
     return jsonify({"success": False, "error": "Not found"}), 404 
 
-@app.route("/api/gallery/rescan", methods=["POST"])
-def rescan_gallery():
+def _scan_and_merge_gallery():
+    """Walk MASTER_FOLDER and merge files into the gallery.
+
+    Shared by the /rescan endpoint and startup_rescan. Returns
+    (gallery, count_added, count_fixed).
+    """
     gallery = shared.load_gallery()
     by_fn = {i["filename"]: i for i in gallery["images"]}
     count_added = 0
@@ -1455,6 +1442,12 @@ def rescan_gallery():
         seen.add(img.get("filename"))
         unique.append(img)
     gallery["images"] = unique
+    return gallery, count_added, count_fixed
+
+@app.route("/api/gallery/rescan", methods=["POST"])
+def rescan_gallery():
+    gallery, count_added, count_fixed = _scan_and_merge_gallery()
+    _invalidate_fp_cache()
     try:
         from core.dedup_store import get_store
         count_removed_records = get_store().remove_missing_files()
@@ -1599,43 +1592,8 @@ def handle_stop_worker(data):
             evt.set()
 
 def startup_rescan():
-    gallery = shared.load_gallery()
-    by_fn = {i["filename"]: i for i in gallery["images"]}
-    count = 0
-    for root, dirs, files in os.walk(MASTER_FOLDER):
-        for fn in files:
-            ext = os.path.splitext(fn)[1].lower()
-            if ext not in EXTENSIONS_IMAGE and ext not in EXTENSIONS_VIDEO:
-                continue
-            full = os.path.join(root, fn)
-            rel = os.path.relpath(full, MASTER_FOLDER)
-            parts = rel.replace('\\', '/').split('/')
-            site = parts[0] if len(parts) > 1 else "unknown"
-            tag = parts[1] if len(parts) > 2 else ""
-            tags = {"tag": [tag]} if tag else {"tag": []}
-            if fn in by_fn:
-                existing = by_fn[fn]
-                if not existing.get("tags"):
-                    existing["tags"] = tags
-                    count += 1
-                continue
-            gallery["images"].append({
-                "id": hashlib.sha256(fn.encode()).hexdigest()[:12],
-                "filename": fn, "filepath": rel, "site": site,
-                "tags": tags, "favourite": False,
-                "downloaded_at": datetime.fromtimestamp(os.path.getmtime(full)).isoformat()
-            })
-            by_fn[fn] = gallery["images"][-1]
-            count += 1
-    # drop duplicate filenames (a download landing mid-scan can double-add)
-    seen = set()
-    unique = []
-    for img in gallery["images"]:
-        if img.get("filename") in seen:
-            continue
-        seen.add(img.get("filename"))
-        unique.append(img)
-    gallery["images"] = unique
+    gallery, count, _fixed = _scan_and_merge_gallery()
+    _invalidate_fp_cache()
     if count:
         print(f"Rescanned {count} new images into gallery")
 

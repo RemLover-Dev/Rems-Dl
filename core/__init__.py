@@ -1,1 +1,1 @@
-﻿"""Core modules: settings/database, shared download engine, maintenance tools."""
+"""Core modules: settings/database, shared download engine, maintenance tools."""
