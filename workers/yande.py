@@ -22,6 +22,7 @@ class YandeWorker(BaseWorker):
         self.safe_tag = sanitize_path_component(clean_tag, fallback="yande")
         self.tag_dir = os.path.join(self.site_root, self.safe_tag)
         safe_ensure_dir(self.tag_dir)
+        self.tag_cache = shared.load_tag_cache("yande")
 
     def get_tags(self):
         return [self.original_tag]
@@ -33,7 +34,7 @@ class YandeWorker(BaseWorker):
         await self.scraper_task()
 
     async def _fetch_tag_types(self, tag_names):
-        cache = shared.load_tag_cache("yande")
+        cache = self.tag_cache
         uncached = [t for t in tag_names if t not in cache]
         if uncached:
             self.log(f"Fetching types for {len(uncached)} tags...")

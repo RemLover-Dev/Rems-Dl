@@ -30,21 +30,7 @@ if os.path.isdir(os.path.join(BASE_DIR, LEGACY_DOWNLOAD_DIR_NAME)) and not os.pa
 HISTORY_LOCK = threading.Lock()
 STOP_EVENTS = {}
 
-SAFE_TAGS_DB = []
-WAIFU_TAGS_DB = []
 WAIFU_TAG_MAP = {}
-
-def get_session(site, net_config):
-    """Legacy sync helper – kept for Flask tag-suggestion endpoints."""
-    import requests as _requests
-    session = _requests.Session()
-    if net_config.get("use_proxy"):
-        p = net_config.get("proxy_url")
-        session.proxies = {"http": p, "https": p}
-    else:
-        session.proxies = {"http": "", "https": "", "no_proxy": "*"}
-    session.verify = net_config.get("verify_tls", False)
-    return session
 
 # --- LOGGING & TAG SYSTEM ---
 def default_logger(worker_name, msg): print(f"[{worker_name.upper()}] {msg}")
@@ -377,7 +363,7 @@ def save_history(site_root, history_set):
     hist_path = os.path.join(site_root, "download_history.json")
     with HISTORY_LOCK:
         try:
-            with open(hist_path, "w", encoding="utf-8") as f: json.dump(list(history_set), f, indent=4)
+            with open(hist_path, "w", encoding="utf-8") as f: json.dump(list(history_set), f)
         except Exception as e: print(f"Error saving history: {e}")
 
 def remove_gallery_files(paths):
