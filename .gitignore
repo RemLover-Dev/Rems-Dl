@@ -98,6 +98,11 @@ Gemini_Dump.txt
 # Graphify output
 graphify-out/
 
+# OpenCode / AI editor workspace files
+.opencode/
+opencode.json
+opencode.jsonc
+
 # Cosplay downloader
 cosplay/
 cosplay_server.log
