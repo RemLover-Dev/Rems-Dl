@@ -320,14 +320,15 @@ def set_clipboard():
     if request.args.get("uri"):
         rel = data.decode("utf-8", "replace").strip()
         base = os.path.normpath(MASTER_FOLDER)
-        full = os.path.normpath(os.path.join(base, rel))
-        if full != base and not full.startswith(base + os.sep):
+        base_real = os.path.realpath(base)
+        full = os.path.realpath(os.path.join(base_real, rel))
+        if os.path.commonpath([base_real, full]) != base_real:
             return jsonify({"error": "forbidden"}), 403
         if not os.path.isfile(full):
             name = os.path.basename(rel)
             full = ""
             if name:
-                for root, _, files in os.walk(base):
+                for root, _, files in os.walk(base_real):
                     if name in files:
                         cand = os.path.join(root, name)
                         if os.path.isfile(cand):
