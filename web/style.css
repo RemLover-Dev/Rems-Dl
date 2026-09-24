@@ -413,6 +413,20 @@ input:focus, select:focus {
     overflow: hidden;
     align-content: flex-start;
 }
+/* history archive tag strip: thumb only on the hovered card (one at a time) */
+.hist-tags { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.hist-tags:hover { scrollbar-color: var(--title-color) transparent; }
+.hist-tags::-webkit-scrollbar { width: 6px; }
+.hist-tags::-webkit-scrollbar-track { background: transparent; }
+.hist-tags::-webkit-scrollbar-thumb { background: transparent; border-radius: 8px; }
+.hist-tags:hover::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--title-color), var(--accent-color));
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+.hist-tags:hover::-webkit-scrollbar-thumb:hover { background: var(--title-color); background-clip: padding-box; }
+
 .img-card-rating {
     display: inline-block;
     padding: 3px 8px;
@@ -663,7 +677,7 @@ select option:hover, select option:checked { background: var(--title-color); col
 .gallery-dropdown-menu.open { display: block; }
 .gallery-dropdown-menu .dd-item { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px; padding: 4px 10px; font-size: 13px; color: #ccc; cursor: pointer; }
 .gallery-dropdown-menu .dd-item:hover { background: rgba(45, 212, 191, 0.08); }
-.gallery-fav-btn { background: transparent; border: 1px solid transparent; box-shadow: 0 0 0 1px #e040a0; border-radius: 20px; color: #e040a0; padding: 6px 14px; font-size: 13px; cursor: pointer; transition: 0.15s; }
+.gallery-fav-btn { display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 1px solid transparent; box-shadow: 0 0 0 1px #e040a0; border-radius: 20px; color: #e040a0; padding: 6px 14px; font-size: 13px; cursor: pointer; transition: 0.15s; line-height: 1; }
 .gallery-fav-btn.active { background: #e040a0; color: #fff; }
 #galleryGrid { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; padding: 4px 2px; min-height: 0; align-content: start; scrollbar-width: thin; scrollbar-color: #2a3a5a #0a0e17; }
 #galleryGrid::-webkit-scrollbar { width: 6px; }
@@ -674,7 +688,7 @@ select option:hover, select option:checked { background: var(--title-color); col
 .gallery-card:hover { box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.5); }
 .gallery-card.broken { opacity: 0.3; }
 .gallery-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; }
-.gallery-card-heart { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.55); border: none; font-size: 20px; cursor: pointer; color: #ff4080; padding: 4px 7px; border-radius: 4px; line-height: 1; transition: 0.15s; z-index: 2; }
+.gallery-card-heart { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.55); border: none; font-size: 20px; cursor: pointer; color: #ff4080; padding: 4px 7px; border-radius: 4px; line-height: 1; transition: 0.15s; z-index: 2; display: flex; align-items: center; justify-content: center; }
 .gallery-card-play { position: absolute; inset: 0; margin: auto; width: 50px; height: 50px; border-radius: 50% 20% 20% 50% / 50% 50% 50% 50%; background: rgba(0,210,211,0.85); mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpolygon points='10,7 10,17 18,12' fill='white'/%3E%3C/svg%3E") no-repeat center / 60%; z-index: 1; }
 .gallery-pagination { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 2px 0 0; margin-top: 14px; flex-shrink: 0; flex-wrap: wrap; }
 .gallery-pagination:empty { display: none; margin-top: 0; }
@@ -764,13 +778,13 @@ select option:hover, select option:checked { background: var(--title-color); col
 }
 
 /* چیدمان دکمه‌های بالا راست */
-.gallery-viewer-top-btn { position: absolute; top: 30px; background: rgba(15, 15, 20, 0.6); backdrop-filter: blur(5px); border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(255,255,255,0.15); color: white; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; z-index: 10010; transition: all 0.2s ease; text-decoration: none; line-height: 1; padding-bottom: 2px; }
+.gallery-viewer-top-btn { position: absolute; top: 30px; background: rgba(15, 15, 20, 0.6); backdrop-filter: blur(5px); border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(255,255,255,0.15); color: white; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; z-index: 10010; transition: all 0.2s ease; text-decoration: none; line-height: 1; }
 .gallery-viewer-top-btn:hover { transform: scale(1.1); }
 .gallery-viewer-top-btn svg { width: 1em; height: 1em; display: block; shape-rendering: geometricPrecision; }
 .toast-icon svg { width: 1em; height: 1em; vertical-align: -0.125em; shape-rendering: geometricPrecision; }
 #wpFade { position: fixed; inset: 0; z-index: -1; background-size: cover; background-position: center; background-repeat: no-repeat; opacity: 0; pointer-events: none; }
 .log-item svg { shape-rendering: geometricPrecision; }
-.gallery-viewer-top-btn.close { right: 40px; font-size: 24px; color: #ff6b6b; }
+.gallery-viewer-top-btn.close { right: 40px; font-size: 24px; color: #ff6b6b; padding-bottom: 2px; }
 .gallery-viewer-top-btn.close:hover { background: #ff6b6b; color: #fff; box-shadow: 0 0 0 1px #ff6b6b; }
 .gallery-viewer-top-btn.fav { right: 100px; color: #ff9ff3; font-size: 22px; }
 .gallery-viewer-top-btn.fav:hover { background: #ff9ff3; color: #000; box-shadow: 0 0 0 1px #ff9ff3; }
