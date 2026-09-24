@@ -2053,6 +2053,7 @@ async function browseFolder() {
 }
 
 function openTab(tabName, btn) {
+    if (gallerySelectMode && tabName !== "Gallery") exitSelectMode();
     let contents = document.getElementsByClassName("tab-content");
     for (let i = 0; i < contents.length; i++) contents[i].style.display = "none";
     let buttons = document.getElementsByClassName("tab-btn");
@@ -2541,6 +2542,11 @@ async function clearImageHistory() { if(await customConfirm("Delete all image ta
 let galleryState = { images: [], total: 0, page: 1, total_pages: 1, per_page: 24 };
 let currentGalleryPage = 1;
 let galleryFavFilter = false;
+let gallerySelectMode = false;
+const gallerySelected = new Map(); // id -> filepath snapshot (survives search/filter re-renders)
+let _dragPaint = false;
+let _dragSelect = true;
+let _dragSuppressClick = false;
 const SOURCE_RATINGS = { safebooru: ['safe'], danbooru: ['safe', 'sensitive', 'questionable', 'explicit'], gelbooru: ['safe', 'sensitive', 'questionable', 'explicit'], gsbooru: ['safe', 'sensitive', 'questionable', 'explicit'], konachan: ['safe', 'questionable', 'explicit'], yande: ['safe', 'questionable', 'explicit'], sankaku: ['safe', 'questionable', 'explicit'], rule34: ['explicit'], nekosapi: ['safe', 'sensitive', 'questionable', 'explicit'], nekosia: ['safe', 'sensitive'], 'waifu.im': ['safe', 'explicit'], pinterest: ['safe'], pixiv: ['safe', 'explicit'] };
 // ... [rest of gallery code stays intact] ...
 function updateRatingDropdown() {
@@ -2746,7 +2752,8 @@ function renderGallery() {
         const src = `/api/gallery/thumb/${encodeURI(fp)}`;
         const imgTag = `<img src="${src}" loading="lazy" decoding="async" onerror="this.onerror=null;this.style.display='none'">`;
         const playOverlay = isVideo ? '<span class="gallery-card-play"></span>'  : '';
-        html += `<div class="gallery-card" onclick="openGalleryViewer('${img.id}')">${playOverlay}${imgTag}<button class="gallery-card-heart" onclick="event.stopPropagation();toggleGalleryFav('${img.id}')">${heartIcon(img.favourite)}</button></div>`;
+        const selCls = gallerySelected.has(img.id) ? ' selected' : '';
+        html += `<div class="gallery-card${selCls}" data-id="${img.id}" onclick="openGalleryViewer('${img.id}')" oncontextmenu="galleryCardContextmenu(event,'${img.id}')">${playOverlay}${imgTag}<button class="gallery-card-heart" onclick="event.stopPropagation();toggleGalleryFav('${img.id}')">${heartIcon(img.favourite)}</button></div>`;
     });
     // pin the column count so the last row is always full
     grid.style.gridTemplateColumns = `repeat(${galleryCols}, minmax(0, 1fr))`;
@@ -2804,7 +2811,152 @@ function toggleFavFilter() { galleryFavFilter = !galleryFavFilter; document.getE
 async function toggleGalleryFav(id) { try { let resp = await fetch("/api/gallery/favourite", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id}) }); if (resp.ok) loadGallery(); } catch (e) {} }
 let viewerIndex = -1;
 let viewerZoom = 1;
-function openGalleryViewer(id) { viewerIndex = galleryState.images.findIndex(i => i.id === id); if (viewerIndex < 0) return; viewerZoom = 1; showViewerImage(); }
+function openGalleryViewer(id) {
+    if (gallerySelectMode) {
+        if (_dragSuppressClick) {
+            _dragSuppressClick = false;
+            return;
+        }
+        toggleGallerySelected(id);
+        return;
+    }
+    viewerIndex = galleryState.images.findIndex(i => i.id === id);
+    if (viewerIndex < 0) return;
+    viewerZoom = 1;
+    showViewerImage();
+}
+
+function updateSelectBar() {
+    const bar = document.getElementById("gallerySelectBar");
+    if (!bar) return;
+    bar.style.display = gallerySelectMode ? "flex" : "none";
+    document.getElementById("gallerySelectCount").textContent = gallerySelected.size + " selected";
+    const grid = document.getElementById("galleryGrid");
+    if (grid) grid.classList.toggle("select-mode", gallerySelectMode);
+}
+
+function setGallerySelected(id, on) {
+    if (on) {
+        if (gallerySelected.has(id)) return;
+        const img = galleryState.images.find(i => i.id === id);
+        if (!img) return;
+        gallerySelected.set(id, img.filepath || "");
+    } else {
+        if (!gallerySelected.has(id)) return;
+        gallerySelected.delete(id);
+    }
+    const card = document.querySelector(`.gallery-card[data-id="${id}"]`);
+    if (card) card.classList.toggle("selected", on);
+    updateSelectBar();
+}
+
+function toggleGallerySelected(id) { setGallerySelected(id, !gallerySelected.has(id)); }
+
+function galleryCardContextmenu(e, id) {
+    e.preventDefault();
+    gallerySelectMode = true;
+    toggleGallerySelected(id);
+}
+
+function exitSelectMode() {
+    gallerySelectMode = false;
+    gallerySelected.clear();
+    _dragPaint = false;
+    _dragSuppressClick = false;
+    updateSelectBar();
+    renderGallery();
+}
+
+async function selectCopy() {
+    const paths = [...gallerySelected.values()].filter(Boolean);
+    if (!paths.length) return;
+    try {
+        await writeClipboardPath(paths.join("\n"));
+        showToast(`Copied ${paths.length} file${paths.length > 1 ? "s" : ""} to clipboard`, { icon: COPY_ICON });
+    } catch (err) {
+        console.error("Copy failed:", err);
+        showToast("Copy failed — check server logs", { warn: true, icon: WARN_ICON, sticky: true });
+    }
+}
+
+async function selectDelete() {
+    const ids = [...gallerySelected.keys()];
+    if (!ids.length) return;
+    if (!await customConfirm(`Delete ${ids.length} image${ids.length > 1 ? "s" : ""}? This removes them from disk.`, "Delete")) return;
+    let ok = 0, dedup = false;
+    for (const id of ids) {
+        try {
+            const r = await fetch("/api/gallery/delete", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ id }) });
+            const d = await r.json().catch(() => ({}));
+            if (r.ok) { ok++; if (d.dedup_warning) dedup = true; }
+        } catch (e) { console.error("Delete error", e); }
+    }
+    exitSelectMode();
+    loadGallery();
+    if (dedup) showToast(`Deleted ${ok} — duplicate-cleanup pending; Refresh will finish it`, { warn: true, icon: WARN_ICON });
+    else showToast(`Deleted ${ok} of ${ids.length} image${ids.length > 1 ? "s" : ""}`, { icon: TRASH_ICON });
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape' || !gallerySelectMode) return;
+    const viewer = document.getElementById('galleryViewer');
+    if (viewer && viewer.style.display === 'flex') return;
+    if (document.querySelector('.custom-confirm-overlay')) return;
+    e.preventDefault();
+    exitSelectMode();
+}, true);
+
+// drag-paint: hold left button and sweep across cards to select/deselect
+document.addEventListener('mousedown', function(e) {
+    if (!gallerySelectMode || e.button !== 0) return;
+    const card = e.target.closest && e.target.closest('.gallery-card');
+    if (!card || !card.dataset.id || e.target.closest('.gallery-card-heart')) {
+        _dragSuppressClick = false;
+        return;
+    }
+    e.preventDefault(); // block native image drag
+    _dragPaint = true;
+    _dragSelect = !gallerySelected.has(card.dataset.id);
+    _dragSuppressClick = true;
+    setGallerySelected(card.dataset.id, _dragSelect);
+}, true);
+
+document.addEventListener('mouseover', function(e) {
+    if (!_dragPaint || !gallerySelectMode) return;
+    const card = e.target.closest && e.target.closest('.gallery-card');
+    if (!card || !card.dataset.id) return;
+    setGallerySelected(card.dataset.id, _dragSelect);
+});
+
+document.addEventListener('mouseup', function() { _dragPaint = false; });
+window.addEventListener('blur', function() { _dragPaint = false; });
+
+// ctrl/cmd+A: select all images on the current page (again = clear)
+document.addEventListener('keydown', function(e) {
+    // e.code first: WebKit can report empty/wrong e.key while Ctrl is held
+    if (!((e.ctrlKey || e.metaKey) && (e.code === 'KeyA' || e.key === 'a' || e.key === 'A' || e.key === '\x01'))) return;
+    const gal = document.getElementById('Gallery');
+    if (!gal || gal.style.display === 'none') return;
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    const viewer = document.getElementById('galleryViewer');
+    if (viewer && viewer.style.display === 'flex') return;
+    if (document.querySelector('.custom-confirm-overlay')) return;
+    e.preventDefault();
+    gallerySelectMode = true;
+    const ids = galleryState.images.map(i => i.id);
+    const allSelected = ids.length > 0 && ids.every(id => gallerySelected.has(id));
+    if (allSelected) gallerySelected.clear();
+    else {
+        ids.forEach(id => {
+            if (gallerySelected.has(id)) return;
+            const img = galleryState.images.find(i => i.id === id);
+            if (img) gallerySelected.set(id, img.filepath || "");
+        });
+    }
+    renderGallery();
+    updateSelectBar();
+}, true);
 
 function openFullImage(filepath, filename) {
     // ponytail: some callers pass pre-encoded paths — normalize before encoding exactly once

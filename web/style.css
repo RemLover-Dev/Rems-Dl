@@ -684,6 +684,30 @@ select option:hover, select option:checked { background: var(--title-color); col
 #galleryGrid::-webkit-scrollbar-track { background: #0a0e17; }
 #galleryGrid::-webkit-scrollbar-thumb { background: #2a3a5a; border-radius: 3px; }
 .gallery-card { position: relative; border-radius: 6px; overflow: hidden; cursor: pointer; background: #0a0e17; border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.15); transition: box-shadow 0.15s; }
+.gallery-card.selected { box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.9); }
+#galleryGrid.select-mode .gallery-card::after {
+    content: "";
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    z-index: 2;
+    width: 18px;
+    height: 18px;
+    box-sizing: border-box;
+    border: 2px solid rgba(45, 212, 191, 0.9);
+    border-radius: 4px;
+    background: rgba(10, 14, 23, 0.8);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+#galleryGrid.select-mode .gallery-card.selected::after {
+    background-color: rgb(45, 212, 191);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%230a0e17' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' d='M3 8.5l3.5 3.5L13 5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 14px;
+}
+.gallery-select-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-bottom: 10px; flex-shrink: 0; }
+.gallery-select-count { font-size: 13px; color: var(--text-color); opacity: 0.8; margin-right: 4px; }
 .gallery-card::before { content: ''; display: block; padding-bottom: 100%; }
 .gallery-card:hover { box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.5); }
 .gallery-card.broken { opacity: 0.3; }
