@@ -2016,13 +2016,40 @@ async function saveProxySettings() {
 }
 
 async function browseFolder() {
-    let folder = prompt("Enter the master download folder path:");
-    if (!folder) return;
     try {
-        let resp = await fetch("/api/folder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ folder: folder }) });
+        let resp = await fetch("/api/folder/browse", { method: "POST" });
         let data = await resp.json();
-        if (data.folder) { document.getElementById("folderDisplay").innerText = data.folder; showToast("✅ Master folder updated"); }
-    } catch(e) {}
+        if (data.cancelled) return;
+        if (data.error) {
+            let folder = prompt("Folder picker unavailable. Enter the master download folder path:", document.getElementById("folderDisplay").innerText || "");
+            if (!folder) return;
+            let postResp = await fetch("/api/folder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ folder: folder }) });
+            let postData = await postResp.json();
+            if (postData.folder) {
+                document.getElementById("folderDisplay").innerText = postData.folder;
+                showToast("Master folder updated", { icon: CHECK_ICON });
+            }
+            return;
+        }
+        if (data.folder) {
+            document.getElementById("folderDisplay").innerText = data.folder;
+            showToast("Master folder updated", { icon: CHECK_ICON });
+        }
+    } catch(e) {
+        let folder = prompt("Enter the master download folder path:", document.getElementById("folderDisplay").innerText || "");
+        if (folder) {
+            try {
+                let postResp = await fetch("/api/folder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ folder: folder }) });
+                let postData = await postResp.json();
+                if (postData.folder) {
+                    document.getElementById("folderDisplay").innerText = postData.folder;
+                    showToast("Master folder updated", { icon: CHECK_ICON });
+                }
+            } catch (err) {
+                showToast("Failed to update folder: " + (err.message || err), { warn: true, icon: WARN_ICON });
+            }
+        }
+    }
 }
 
 function openTab(tabName, btn) {

@@ -302,14 +302,121 @@ def config_manager():
         return jsonify({"success": True})
     return jsonify(settings.config)
 
+_fp_cache = {"data": None, "at": 0.0}
+_FP_CACHE_TTL = 30.0
+
+def _invalidate_fp_cache():
+    _fp_cache["data"] = None
+    _fp_cache["at"] = 0.0
+
 @app.route("/api/folder", methods=["GET", "POST"])
 def folder_manager():
+    global MASTER_FOLDER
     if request.method == "POST":
-        folder = request.json.get("folder", "")
-        if folder:
-            shared.MASTER_FOLDER = os.path.join(folder, "Rem God")
-            return jsonify({"folder": shared.MASTER_FOLDER})
-    return jsonify({"folder": shared.MASTER_FOLDER})
+        folder = (request.json or {}).get("folder", "")
+        if not folder:
+            return jsonify({"error": "empty"}), 400
+        MASTER_FOLDER = os.path.normpath(folder)
+        shared.MASTER_FOLDER = MASTER_FOLDER
+        _invalidate_fp_cache()
+    return jsonify({"folder": MASTER_FOLDER})
+
+def _pick_folder_desktop(start: str):
+    """User's desktop folder dialog (pywebview window -> OS native dialog -> tkinter).
+    Returns path str if selected, None if cancelled, or False if no picker available.
+    """
+    # 1. Try active pywebview window
+    try:
+        import webview
+        wins = list(webview.windows)
+        if wins:
+            result = wins[0].create_file_dialog(webview.FileDialog.FOLDER, directory=start)
+            if not result:
+                return None
+            picked = result[0] if isinstance(result, (list, tuple)) else str(result)
+            return picked or None
+    except Exception:
+        pass
+
+    # 2. Platform-specific CLI dialogs
+    import subprocess
+    if sys.platform == "win32":
+        try:
+            ps_script = (
+                "$ErrorActionPreference = 'Stop'; "
+                "[System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms') | Out-Null; "
+                f"$f = New-Object System.Windows.Forms.FolderBrowserDialog; "
+                f"$f.SelectedPath = '{start}'; "
+                f"$f.Description = 'Select download folder'; "
+                "if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $f.SelectedPath }"
+            )
+            r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script],
+                               capture_output=True, text=True, timeout=120)
+            if r.returncode == 0:
+                out = (r.stdout or "").strip()
+                return out or None
+        except Exception:
+            pass
+    elif sys.platform == "darwin":
+        try:
+            osa = f'POSIX path of (choose folder with prompt "Select download folder:" default location POSIX file "{start}")'
+            r = subprocess.run(["osascript", "-e", osa], capture_output=True, text=True, timeout=120)
+            if r.returncode == 0:
+                out = (r.stdout or "").strip()
+                return out or None
+            return None
+        except Exception:
+            pass
+    elif sys.platform.startswith("linux"):
+        for cmd in (
+            ["kdialog", "--getexistingdirectory", start],
+            ["zenity", "--file-selection", "--directory", f"--filename={start}/"],
+        ):
+            try:
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+                if r.returncode == 0:
+                    out = (r.stdout or "").strip().split("\n")[0].strip()
+                    return out or None
+                if not (r.stdout or "").strip():
+                    return None
+            except FileNotFoundError:
+                continue
+            except Exception:
+                continue
+
+    # 3. Universal tkinter fallback
+    try:
+        import tkinter
+        from tkinter import filedialog
+        root = tkinter.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        picked = filedialog.askdirectory(initialdir=start, title="Select download folder")
+        root.destroy()
+        return picked or None
+    except Exception:
+        pass
+
+    return False
+
+@app.route("/api/folder/browse", methods=["POST"])
+def browse_folder():
+    """Open the desktop's folder picker across Windows, macOS, and Linux."""
+    global MASTER_FOLDER
+    start = shared.MASTER_FOLDER if os.path.isdir(shared.MASTER_FOLDER) else os.path.expanduser("~")
+    try:
+        picked = _pick_folder_desktop(start)
+        if picked is None:
+            return jsonify({"cancelled": True, "folder": shared.MASTER_FOLDER})
+        if picked is False:
+            return jsonify({"error": "No folder picker available"}), 500
+        path = os.path.normpath(picked)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    MASTER_FOLDER = path
+    shared.MASTER_FOLDER = path
+    _invalidate_fp_cache()
+    return jsonify({"folder": path})
 
 @app.route("/api/api-settings", methods=["GET", "POST"])
 def api_settings_manager():

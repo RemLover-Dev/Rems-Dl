@@ -53,3 +53,38 @@ def test_inno_setup_script():
     assert "Rems-Dl-Windows-x64-Setup" in content
     assert "VCRedistNeedsInstall" in content
     assert "RemLoverDev.RemsDl.App.1.0" in content
+
+
+def test_folder_api_and_browse(tmp_path, monkeypatch):
+    import Rems_Dl
+    Rems_Dl.app.config["TESTING"] = True
+    H = {"User-Agent": "RemsDlDesktopApp/1.0"}
+
+    with Rems_Dl.app.test_client() as client:
+        # GET returns current master folder
+        r = client.get("/api/folder", headers=H)
+        assert r.status_code == 200
+        assert "folder" in r.get_json()
+
+        # POST without Rem God join
+        test_dir = str(tmp_path / "MyDownloads")
+        os.makedirs(test_dir, exist_ok=True)
+        r = client.post("/api/folder", json={"folder": test_dir}, headers=H)
+        assert r.status_code == 200
+        assert r.get_json()["folder"] == os.path.normpath(test_dir)
+
+        # POST empty returns 400
+        r = client.post("/api/folder", json={"folder": ""}, headers=H)
+        assert r.status_code == 400
+
+        # /api/folder/browse with simulated picked path
+        monkeypatch.setattr(Rems_Dl, "_pick_folder_desktop", lambda start: test_dir)
+        r = client.post("/api/folder/browse", headers=H)
+        assert r.status_code == 200
+        assert r.get_json()["folder"] == os.path.normpath(test_dir)
+
+        # /api/folder/browse with user cancelled
+        monkeypatch.setattr(Rems_Dl, "_pick_folder_desktop", lambda start: None)
+        r = client.post("/api/folder/browse", headers=H)
+        assert r.status_code == 200
+        assert r.get_json().get("cancelled") is True
