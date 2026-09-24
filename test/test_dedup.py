@@ -91,6 +91,22 @@ class TestDedupStore:
         store.remove_by_filepath(p)
         assert store.count() == 0
 
+    def test_remove_missing_files(self, dedup_env):
+        store, tmp_dir = dedup_env
+        p1 = os.path.join(tmp_dir, "keep.png")
+        p2 = os.path.join(tmp_dir, "remove.png")
+        Image.new("RGB", (100, 100), color=(1, 2, 3)).save(p1)
+        Image.new("RGB", (100, 100), color=(4, 5, 6)).save(p2)
+        store.check_and_add(p1)
+        store.check_and_add(p2)
+        assert store.count() == 2
+        os.remove(p2)
+        swept = store.remove_missing_files()
+        assert swept == 1
+        assert store.count() == 1
+        # Second run is idempotent
+        assert store.remove_missing_files() == 0
+
     def test_settings_toggle(self, tmp_path, monkeypatch):
         store = DedupStore(os.path.join(tmp_path, "toggle.sqlite3"))
         monkeypatch.setattr("core.dedup_store.get_store", lambda: store)

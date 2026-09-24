@@ -17,6 +17,7 @@ user_wallpapers/
 tag_history.json
 fav_tags.json
 image_history.json
+database/dedup.sqlite3
 
 # ========================
 # Personal Wallpapers Filter

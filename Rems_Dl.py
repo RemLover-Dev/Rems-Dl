@@ -108,18 +108,8 @@ settings = SettingsManager(BASE_DIR)
 import core.database
 core.database._settings_instance = settings
 
-SAFE_TAGS_DB = []
-YANDE_TAGS_DB = []
-KONA_TAGS_DB = []
-SANKAKU_TAGS_DB = []
-GELBOORU_TAGS_DB = []
-ANIME_TAGS_DB = []
 WAIFU_TAGS_DB = []
 WAIFU_TAG_MAP = {}
-ESHUUSHUU_TAGS_DB = []
-NEKOSAPI_TAGS_DB = []
-NEKOSIA_TAGS_DB = []
-GSBOORU_TAGS_DB = []
 
 if settings.get("use_proxy"):
     os.environ["HTTP_PROXY"] = str(settings.get("proxy_url") or "")
@@ -1207,7 +1197,14 @@ def delete_gallery_image_by_name():
                 DatabaseManager.remove_image_history(fn)
             except Exception as e:
                 print("History delete error:", e)
-            return jsonify({"success": True})
+            dedup_warning = False
+            try:
+                from core.dedup_store import get_store
+                get_store().remove_by_filepath(full_path)
+            except Exception as e:
+                dedup_warning = True
+                print("Dedup cleanup error:", e)
+            return jsonify({"success": True, "dedup_warning": dedup_warning})
     return jsonify({"success": False, "error": "not found"}), 404
 
 @app.route("/api/gallery/tags", methods=["GET"])
@@ -1349,7 +1346,14 @@ def delete_gallery_image():
                 DatabaseManager.remove_image_history(fn)
             except Exception as e:
                 print("History delete error:", e)
-            return jsonify({"success": True})
+            dedup_warning = False
+            try:
+                from core.dedup_store import get_store
+                get_store().remove_by_filepath(full_path)
+            except Exception as e:
+                dedup_warning = True
+                print("Dedup cleanup error:", e)
+            return jsonify({"success": True, "dedup_warning": dedup_warning})
     return jsonify({"success": False, "error": "Not found"}), 404 
 
 @app.route("/api/gallery/rescan", methods=["POST"])
@@ -1396,8 +1400,16 @@ def rescan_gallery():
         seen.add(img.get("filename"))
         unique.append(img)
     gallery["images"] = unique
+    try:
+        from core.dedup_store import get_store
+        count_removed_records = get_store().remove_missing_files()
+    except Exception as e:
+        print("Dedup sweep error:", e)
+        count_removed_records = 0
     shared.save_gallery(gallery)
-    return jsonify({"success": True, "added": count_added, "fixed": count_fixed})
+    return jsonify({"success": True, "added": count_added, "fixed": count_fixed,
+                    "removed_entries": 0,
+                    "removed_records": count_removed_records})
 
 @app.route("/api/gallery/import", methods=["POST"])
 def import_gallery_from_history():
@@ -1583,6 +1595,15 @@ def startup_rescan():
     if count or removed:
         shared.save_gallery(gallery)
 
+    # sweep dedup records whose files are gone (background thread only)
+    try:
+        from core.dedup_store import get_store
+        swept = get_store().remove_missing_files()
+        if swept:
+            print(f"Pruned {swept} stale dedup records")
+    except Exception as e:
+        print(f"Dedup sweep error: {e}")
+
 if __name__ == "__main__":
     def _pick_loopback_port():
         import socket as _socket
@@ -1633,7 +1654,17 @@ if __name__ == "__main__":
 
     server_thread = threading.Thread(target=start_server, daemon=True)
     server_thread.start()
-    time.sleep(1.0)
+    # wait until the port actually accepts connections (was: fixed sleep(1.0))
+    import socket as _ready_socket
+    _deadline = time.time() + 5
+    while time.time() < _deadline:
+        try:
+            with _ready_socket.create_connection(("127.0.0.1", port), timeout=0.25):
+                break
+        except OSError:
+            time.sleep(0.03)
+    else:
+        time.sleep(0.5)
 
     def _shutdown_now():
         try:

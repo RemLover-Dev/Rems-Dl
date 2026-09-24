@@ -504,6 +504,24 @@ class DedupStore:
             except Exception as e:
                 print(f"[DEDUP] Error removing filepath: {e}")
 
+    def remove_missing_files(self) -> int:
+        """Delete records whose file no longer exists on disk. Returns count removed."""
+        with self._lock:
+            rows = self._conn.execute("SELECT id, filepath FROM image_hashes").fetchall()
+        # stat outside the lock
+        missing = [r["id"] for r in rows if not os.path.isfile(r["filepath"])]
+        if not missing:
+            return 0
+        with self._lock:
+            for start in range(0, len(missing), 500):
+                batch = missing[start:start + 500]
+                placeholders = ",".join("?" * len(batch))
+                self._conn.execute(f"DELETE FROM image_hashes WHERE id IN ({placeholders})", batch)
+            self._conn.commit()
+            for i in missing:
+                self._phash_index.pop(i, None)
+        return len(missing)
+
     def count(self) -> int:
         with self._lock:
             return self._conn.execute("SELECT COUNT(*) AS c FROM image_hashes").fetchone()["c"]
