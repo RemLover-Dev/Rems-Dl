@@ -418,6 +418,102 @@ def browse_folder():
     _invalidate_fp_cache()
     return jsonify({"folder": path})
 
+@app.route("/api/clipboard", methods=["POST"])
+def set_clipboard():
+    """Copy file URIs or data to system clipboard across Windows, macOS, and Linux.
+
+    ?uri=1: body contains library-relative paths (single or newline-separated).
+    Resolves each path to local file and sets clipboard so content survives app exit.
+    """
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    data = request.get_data()
+    if not data:
+        return jsonify({"error": "empty"}), 400
+
+    mime = (request.content_type or "application/octet-stream").split(";")[0].strip() or "application/octet-stream"
+
+    resolved_paths = []
+    if request.args.get("uri"):
+        lines = [line.strip() for line in data.decode("utf-8", "replace").splitlines() if line.strip()]
+        if not lines:
+            return jsonify({"error": "empty"}), 400
+
+        base = os.path.normpath(MASTER_FOLDER)
+        for rel in lines:
+            full = os.path.normpath(os.path.join(base, rel))
+            if full != base and not full.startswith(base + os.sep):
+                return jsonify({"error": "forbidden"}), 403
+            if not os.path.isfile(full):
+                name = os.path.basename(rel)
+                found = ""
+                if name:
+                    for root, _, files in os.walk(base):
+                        if name in files:
+                            cand = os.path.join(root, name)
+                            if os.path.isfile(cand):
+                                found = cand
+                                break
+                if not found:
+                    return jsonify({"error": "not found"}), 404
+                full = found
+            resolved_paths.append(full)
+
+        uri_bytes = "".join(f"{Path(p).as_uri()}\r\n" for p in resolved_paths).encode("utf-8")
+        data = uri_bytes
+        mime = "text/uri-list"
+
+    # Windows native file clipboard
+    if sys.platform == "win32":
+        if resolved_paths:
+            try:
+                paths_arg = ", ".join(f'"{p}"' for p in resolved_paths)
+                ps_cmd = f"Set-Clipboard -Path {paths_arg}"
+                r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+                                   capture_output=True, text=True, timeout=5)
+                if r.returncode == 0:
+                    return jsonify({"ok": True})
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "no clipboard tool"}), 501
+
+    # macOS native file clipboard
+    if sys.platform == "darwin":
+        if resolved_paths:
+            try:
+                osa_items = ", ".join(f'(POSIX file "{p}")' for p in resolved_paths)
+                osa_cmd = f"set the clipboard to {{{osa_items}}}"
+                r = subprocess.run(["osascript", "-e", osa_cmd], capture_output=True, text=True, timeout=5)
+                if r.returncode == 0:
+                    return jsonify({"ok": True})
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "no clipboard tool"}), 501
+
+    # Linux (Wayland / X11)
+    if os.environ.get("WAYLAND_DISPLAY") and shutil.which("wl-copy"):
+        cmd = ["wl-copy", "--type", mime]
+    elif shutil.which("xclip"):
+        cmd = ["xclip", "-selection", "clipboard", "-t", mime, "-i"]
+    else:
+        return jsonify({"error": "no clipboard tool"}), 501
+
+    try:
+        p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        p.stdin.write(data)
+        p.stdin.close()
+        try:
+            p.wait(timeout=1.0)
+            if p.returncode not in (0, None):
+                return jsonify({"error": f"exit {p.returncode}"}), 500
+        except subprocess.TimeoutExpired:
+            pass
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/api-settings", methods=["GET", "POST"])
 def api_settings_manager():
     if request.method == "POST":

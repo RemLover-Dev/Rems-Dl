@@ -2101,6 +2101,7 @@ function showToast(msg, opts) {
 const WARN_ICON = `<svg width="1em" height="1em" viewBox="0 0 14 14" fill="none" style="vertical-align:-0.125em;"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.89003 1.0499C7.80611 0.886097 7.67861 0.748632 7.52158 0.652642 7.36455 0.556651 7.18407 0.505859 7.00003 0.505859c-0.18405 0 -0.36453 0.050792 -0.52156 0.146783 -0.15703 0.09599 -0.28453 0.233455 -0.36844 0.397258l-5.500004 11c-0.07671 0.1522 -0.113232 0.3215 -0.106098 0.4919 0.007134 0.1703 0.057688 0.3359 0.146861 0.4812 0.089172 0.1453 0.214003 0.2654 0.362641 0.3488 0.14863 0.0835 0.31613 0.1276 0.4866 0.1281H12.5c0.1705 -0.0005 0.338 -0.0446 0.4866 -0.1281 0.1487 -0.0834 0.2735 -0.2035 0.3627 -0.3488 0.0891 -0.1453 0.1397 -0.3109 0.1468 -0.4812 0.0072 -0.1704 -0.0294 -0.3397 -0.1061 -0.4919l-5.49997 -11Z"/><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 5v3.25"/><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 11c-0.13807 0 -0.25 -0.1119 -0.25 -0.25s0.11193 -0.25 0.25 -0.25"/><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 11c0.13807 0 0.25 -0.1119 0.25 -0.25s-0.11193 -0.25 -0.25 -0.25"/></svg>`;
 const CHECK_ICON = ZERO_CHECK_ICON;
 const TRASH_ICON = `<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" style="display:block;"><path fill="currentColor" d="M15.2188 0c0.2229 0.0000058603 0.4394 0.0747674 0.6152 0.211914 0.1757 0.137143 0.3013 0.328695 0.3555 0.544922L16.6182 3H24v2h-3v16c0 0.7957 -0.3163 1.5585 -0.8789 2.1211S18.7957 24 18 24H6c-0.79565 0 -1.55849 -0.3163 -2.12109 -0.8789C3.3163 22.5585 3 21.7957 3 21V5H0V3h7.38184L7.81055 0.756836c0.05418 -0.216227 0.17973 -0.407779 0.35547 -0.544922C8.34176 0.0747674 8.55833 0.0000058603 8.78125 0zM8 19h2V8H8zm6 -11v11h2V8z"></path></svg>`;
+const COPY_ICON = `<svg width="1em" height="1em" viewBox="0 0 48 48" fill="none" style="display:block;"><path fill="currentColor" fill-rule="evenodd" d="M17.5535 0.678504C19.0646 0.585621 21.2133 0.5 23.9996 0.5c2.7865 0 4.9354 0.085632 6.4467 0.178522 0.9153 0.056262 1.7297 0.431898 2.3401 1.013578 0.0486 -0.00131 0.0976 -0.00087 0.1469 0.00138 1.9679 0.08977 3.6262 0.20096 4.975 0.31121 3.5231 0.288 6.2657 3.00338 6.5533 6.54187C44.7266 11.8067 45 16.9901 45 24.501c0 7.5109 -0.2734 12.6943 -0.5384 15.9544 -0.2876 3.5385 -3.0302 6.2539 -6.5533 6.5419 -3.0518 0.2494 -7.6879 0.5037 -13.9083 0.5037 -6.2204 0 -10.8565 -0.2543 -13.9083 -0.5037 -3.52314 -0.288 -6.26573 -3.0034 -6.55333 -6.5419C3.2734 37.1953 3 32.0119 3 24.501c0 -7.5109 0.2734 -12.6943 0.53837 -15.95444 0.2876 -3.53848 3.03019 -6.25387 6.55333 -6.54187 1.3488 -0.11025 3.0071 -0.22144 4.9748 -0.3112 0.0494 -0.00225 0.0983 -0.00269 0.1469 -0.00139 0.6104 -0.58168 1.4247 -0.957331 2.3401 -1.013596ZM14.1563 5.74299c-1.4462 0.07621 -2.6925 0.16289 -3.7387 0.24841 -1.58575 0.12962 -2.76472 1.30856 -2.89238 2.8792C7.26992 12.0117 7 17.0863 7 24.501c0 7.4146 0.26992 12.4892 0.52522 15.6304 0.12766 1.5706 1.30663 2.7496 2.89238 2.8792 2.9437 0.2406 7.4711 0.4904 13.5824 0.4904s10.6387 -0.2498 13.5824 -0.4904c1.5858 -0.1296 2.7647 -1.3086 2.8924 -2.8792 0.2553 -3.1412 0.5252 -8.2158 0.5252 -15.6304 0 -7.4147 -0.2699 -12.4893 -0.5252 -15.6304 -0.1277 -1.57064 -1.3067 -2.74958 -2.8924 -2.8792 -1.0463 -0.08553 -2.2925 -0.1722 -3.7389 -0.24841 -0.0339 0.44693 -0.0705 0.86533 -0.1069 1.24504 -0.1654 1.72545 -1.4854 3.11107 -3.2524 3.26737 -1.4089 0.1246 -3.5319 0.2446 -6.4846 0.2446 -2.9525 0 -5.0753 -0.1199 -6.4841 -0.2446 -1.7669 -0.1563 -3.0868 -1.54188 -3.2522 -3.26725 -0.0364 -0.37974 -0.073 -0.79818 -0.107 -1.24516Z" clip-rule="evenodd"></path></svg>`;
 window.addEventListener("error", function(e) {
     try {
         const stack = (e.error && e.error.stack ? String(e.error.stack) : "").split("\n").slice(0, 3).join(" | ");
@@ -3023,35 +3024,47 @@ function toggleViewerFav() {
     }
     const img = galleryState.images[viewerIndex]; if (!img) return; img.favourite = !img.favourite; document.getElementById("galleryViewerFav").innerHTML = heartIcon(img.favourite); fetch("/api/gallery/favourite", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id: img.id}) }).catch(e => console.error("Fav toggle error:", e)); }
     let _copyBusy = false;
-    async function copyUrlToClipboard(url, filename) {
-        // ponytail: copy the original bytes untouched — no canvas, no re-encode
-        let blob = await (await fetch(url)).blob();
-        try {
-            await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'application/octet-stream']: blob })]);
-            showToast("📋 Image copied to clipboard");
-        } catch (err) {
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename || 'file';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            showToast("⬇️ Clipboard refused this file type — saved to your PC instead", { warn: true, sticky: true, icon: "⚠" });
+    async function writeClipboardPath(path) {
+        const r = await fetch("/api/clipboard?uri=1", { method: "POST", body: path });
+        if (!r.ok) {
+            throw new Error(`Native clipboard API status: ${r.status}`);
         }
     }
-    async function copyBlobToClipboard(blob, url, filename) {
-        // ponytail: blob is the viewer's already-loaded bytes — no second fetch, no canvas, no re-encode
+    function clipboardRelPath(url, filename) {
+        if (url && url.startsWith("/api/gallery/file/")) return decodeURIComponent(url.slice("/api/gallery/file/".length));
+        if (url && url.startsWith("/api/thumb_by_name/")) return decodeURIComponent(url.slice("/api/thumb_by_name/".length));
+        return filename || "";
+    }
+    function saveAsDownload(url, filename) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || 'file';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToast("Clipboard refused this file type — saved to your PC instead", { warn: true, sticky: true, icon: WARN_ICON });
+    }
+    async function copyToClipboard(url, filename) {
+        // 1. Try native backend clipboard (file copy across Win/Mac/Linux)
         try {
-            await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'application/octet-stream']: blob })]);
-            showToast("📋 Image copied to clipboard");
-        } catch (err) {
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename || 'file';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            showToast("⬇️ Clipboard refused this file type — saved to your PC instead", { warn: true, sticky: true, icon: "⚠" });
+            const rel = clipboardRelPath(url, filename);
+            if (rel) {
+                await writeClipboardPath(rel);
+                showToast("Image copied to clipboard", { icon: COPY_ICON });
+                return;
+            }
+        } catch (nativeErr) {
+            console.warn("Native clipboard write failed, trying web clipboard:", nativeErr);
+        }
+
+        // 2. Try standard browser clipboard API
+        try {
+            let blob = (viewerResource && viewerResource.blob) || await (await fetch(url)).blob();
+            await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'image/png']: blob })]);
+            showToast("Image copied to clipboard", { icon: COPY_ICON });
+        } catch (webErr) {
+            // 3. Fallback to download
+            saveAsDownload(url, filename);
         }
     }
     async function copyViewerImage() {
@@ -3070,30 +3083,26 @@ function toggleViewerFav() {
                 url = rel ? `/api/gallery/file/${rel.split('/').map(encodeURIComponent).join('/')}` : `/api/thumb_by_name/${encodeURIComponent(img.filename || '')}`;
                 filename = img.filename;
             }
-            // Videos keep the previous fetch-then-clipboard-or-download behavior;
-            // the Blob resource manager is for raster images only.
             if (/\.(mp4|webm|mov|avi|mkv)$/i.test(filename || "") || (!viewerResource.blob && !viewerResource.loadPromise)) {
-                showToast("📋 Copying...");
-                await copyUrlToClipboard(url, filename);
+                showToast("Copying...", { icon: COPY_ICON });
+                await copyToClipboard(url, filename);
                 return;
             }
             const generation = viewerResource.generation;
             if (!viewerResource.blob && viewerResource.loadPromise) {
-                showToast("📋 Preparing image...");
+                showToast("Preparing image...", { icon: COPY_ICON });
                 try {
                     await viewerResource.loadPromise;
                 } catch (err) {
-                    if (generation !== viewerResource.generation) showToast("⚠ Image changed — press Copy again");
-                    else showToast("⚠ Copy failed: image did not load");
+                    if (generation !== viewerResource.generation) showToast("Image changed — press Copy again", { warn: true, icon: WARN_ICON });
+                    else showToast("Copy failed: image did not load", { warn: true, icon: WARN_ICON });
                     return;
                 }
             }
-            if (generation !== viewerResource.generation) { showToast("⚠ Image changed — press Copy again"); return; }
-            const blob = viewerResource.blob;
-            if (!blob) { showToast("⚠ Image is not ready yet — try again"); return; }
-            showToast("📋 Copying...");
-            await copyBlobToClipboard(blob, viewerResource.url || url, viewerResource.filename || filename);
-        } catch (e) { showToast("⚠ Copy failed: " + (e && e.message || e)); }
+            if (generation !== viewerResource.generation) { showToast("Image changed — press Copy again", { warn: true, icon: WARN_ICON }); return; }
+            showToast("Copying...", { icon: COPY_ICON });
+            await copyToClipboard(viewerResource.url || url, viewerResource.filename || filename);
+        } catch (e) { showToast("Copy failed: " + (e && e.message || e), { warn: true, icon: WARN_ICON }); }
         finally { _copyBusy = false; }
     }
     function getViewerTransform() { const img = document.getElementById("galleryViewerImg"); const cur = img.style.transform; const m = cur.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/); return m ? [parseFloat(m[1]), parseFloat(m[2])] : [0, 0]; }
@@ -3220,8 +3229,12 @@ function toggleViewerFav() {
         else if (e.key === '+' || e.key === '=') zoomViewer(0.05, window.innerWidth/2, window.innerHeight/2);
         else if (e.key === '-') zoomViewer(-0.05, window.innerWidth/2, window.innerHeight/2);
         else if (e.key === 'Delete') { deleteViewerImage(); }
-        else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') { copyViewerImage(); }
-    });
+        else if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyC' || e.key.toLowerCase() === 'c')) {
+            e.preventDefault();
+            e.stopPropagation();
+            copyViewerImage();
+        }
+    }, true);
     let _resizeTimer = null;
     window.addEventListener('resize', function() {
         clearTimeout(_resizeTimer);
