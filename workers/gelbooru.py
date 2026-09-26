@@ -1,4 +1,4 @@
-import os, re
+import html, os, re
 import asyncio
 from workers import BaseWorker, sanitize_path_component, sanitize_filename, safe_ensure_dir
 from core.shared import load_tag_cache, save_tag_cache, TAG_TYPE_MAP
@@ -58,7 +58,8 @@ class GelbooruWorker(BaseWorker):
                         data = await resp.json()
                         tags = data.get("tag", [])
                         # ponytail: only trust the exact tag, never a near miss
-                        match = next((t for t in tags if str(t.get("name", "")).lower() == tag_name.lower()), None)
+                        # gelbooru entity-encodes response names (kal&#039;tsit_...)
+                        match = next((t for t in tags if html.unescape(str(t.get("name", ""))).lower() == tag_name.lower()), None)
                         if match:
                             t = match
                             self.tag_cache[tag_name] = TAG_TYPE_MAP.get(t.get("type", 0), "tag")
@@ -125,8 +126,9 @@ class GelbooruWorker(BaseWorker):
             all_tags = set()
             for post in posts:
                 if isinstance(post, dict):
+                    # post tags arrive entity-encoded (kal&#039;tsit_...) — normalize before cache lookup
                     for t in post.get("tags", "").split():
-                        all_tags.add(t.strip())
+                        all_tags.add(html.unescape(t.strip()))
             if all_tags:
                 uncached_count = len([t for t in all_tags if t not in self.tag_cache])
                 if uncached_count:
@@ -155,7 +157,7 @@ class GelbooruWorker(BaseWorker):
                 filename = sanitize_filename(raw_filename, fallback=f"gelbooru_{post.get('id', 'item')}.jpg")
                 rating_label = sanitize_path_component(self.rating_label_map.get(post_rating, "Unknown"), fallback="Unknown")
 
-                raw_tags = [t.strip() for t in post.get("tags", "").split() if t.strip()]
+                raw_tags = [html.unescape(t.strip()) for t in post.get("tags", "").split() if t.strip()]
                 tags_list, artists, characters, copyrights, metadata_tags = self._categorize_tags(raw_tags)
 
                 rating_dir = os.path.join(self.tag_dir, rating_label, "images")

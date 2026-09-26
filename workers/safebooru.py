@@ -1,4 +1,4 @@
-import os, re
+import html, os, re
 import asyncio
 import xml.etree.ElementTree as ET
 from workers import BaseWorker, sanitize_path_component, sanitize_filename, safe_ensure_dir
@@ -39,7 +39,8 @@ class SafebooruWorker(BaseWorker):
                     try:
                         resp = await self.session.get("https://safebooru.org/index.php", params={
                             "page": "dapi", "s": "tag", "q": "index",
-                            "name": tag_name, "limit": 50
+                            # safebooru tag search needs entity-encoded names (kal&#039;tsit_...); &#x27; doesn't match
+                            "name": html.escape(tag_name, quote=False).replace("'", "&#039;"), "limit": 50
                         })
                         if resp.status != 200:
                             cache[tag_name] = 0
@@ -115,7 +116,8 @@ class SafebooruWorker(BaseWorker):
                 if not isinstance(post, dict):
                     continue
                 tags_raw = post.get("tag_string", post.get("tags", ""))
-                all_tag_names.update(t.strip() for t in tags_raw.split() if t.strip())
+                # post tags arrive entity-encoded (kal&#039;tsit_...) — normalize before cache lookup
+                all_tag_names.update(html.unescape(t.strip()) for t in tags_raw.split() if t.strip())
 
             cache = await self._fetch_tag_types(all_tag_names)
 
@@ -144,7 +146,7 @@ class SafebooruWorker(BaseWorker):
                 filepath = os.path.join(safe_dir, filename)
 
                 tags_raw = post.get("tag_string", post.get("tags", ""))
-                tag_names = [t.strip() for t in tags_raw.split() if t.strip()]
+                tag_names = [html.unescape(t.strip()) for t in tags_raw.split() if t.strip()]
                 cats = self._categorize_tags(tag_names, cache)
                 artists = cats["artist"]
                 characters = cats["character"]
